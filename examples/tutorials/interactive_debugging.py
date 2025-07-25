@@ -1,12 +1,12 @@
-import genesis as gs
+import ezsim
 
-gs.init()
+ezsim.init()
 
-scene = gs.Scene(show_viewer=False)
+scene = ezsim.Scene(show_viewer=False)
 
-plane = scene.add_entity(gs.morphs.Plane())
+plane = scene.add_entity(ezsim.morphs.Plane())
 franka = scene.add_entity(
-    gs.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
+    ezsim.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
 )
 
 cam_0 = scene.add_camera()

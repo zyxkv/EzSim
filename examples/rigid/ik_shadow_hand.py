@@ -2,7 +2,7 @@ import argparse
 
 import numpy as np
 
-import genesis as gs
+import ezsim
 
 
 def main():
@@ -11,17 +11,17 @@ def main():
     args = parser.parse_args()
 
     ########################## init ##########################
-    gs.init(seed=0, precision="32", logging_level="debug")
+    ezsim.init(seed=0, precision="32", logging_level="debug")
 
     ########################## create a scene ##########################
-    scene = gs.Scene(
-        viewer_options=gs.options.ViewerOptions(
+    scene = ezsim.Scene(
+        viewer_options=ezsim.options.ViewerOptions(
             camera_pos=(2.5, 0.0, 1.5),
             camera_lookat=(0.0, 0.0, 0.5),
             camera_fov=40,
         ),
         show_viewer=args.vis,
-        rigid_options=gs.options.RigidOptions(
+        rigid_options=ezsim.options.RigidOptions(
             gravity=(0, 0, 0),
             enable_collision=False,
             enable_joint_limit=False,
@@ -29,34 +29,34 @@ def main():
     )
 
     target_1 = scene.add_entity(
-        gs.morphs.Mesh(
+        ezsim.morphs.Mesh(
             file="meshes/axis.obj",
             scale=0.05,
         ),
-        surface=gs.surfaces.Default(color=(1, 0.5, 0.5, 1)),
+        surface=ezsim.surfaces.Default(color=(1, 0.5, 0.5, 1)),
     )
 
     target_2 = scene.add_entity(
-        gs.morphs.Mesh(
+        ezsim.morphs.Mesh(
             file="meshes/axis.obj",
             scale=0.05,
         ),
-        surface=gs.surfaces.Default(color=(0.5, 1.0, 0.5, 1)),
+        surface=ezsim.surfaces.Default(color=(0.5, 1.0, 0.5, 1)),
     )
     target_3 = scene.add_entity(
-        gs.morphs.Mesh(
+        ezsim.morphs.Mesh(
             file="meshes/axis.obj",
             scale=0.05,
         ),
-        surface=gs.surfaces.Default(color=(0.5, 0.5, 1.0, 1)),
+        surface=ezsim.surfaces.Default(color=(0.5, 0.5, 1.0, 1)),
     )
     ########################## entities ##########################
     robot = scene.add_entity(
-        morph=gs.morphs.URDF(
+        morph=ezsim.morphs.URDF(
             scale=1.0,
             file="urdf/shadow_hand/shadow_hand.urdf",
         ),
-        surface=gs.surfaces.Reflective(color=(0.4, 0.4, 0.4)),
+        surface=ezsim.surfaces.Reflective(color=(0.4, 0.4, 0.4)),
     )
 
     ########################## build ##########################

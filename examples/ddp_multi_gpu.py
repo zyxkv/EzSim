@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Multi-node / multi-GPU Genesis ✕ PyTorch DDP demo
+Multi-node / multi-GPU EzSim ✕ PyTorch DDP demo
 =================================================
 
 Single machine, 2 GPUs:
@@ -14,7 +14,7 @@ Expectation:
 import os, argparse, random, numpy as np
 import torch, torch.nn as nn, torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
-import genesis as gs
+import ezsim
 
 
 class TinyMLP(nn.Module):
@@ -38,11 +38,11 @@ def run_worker(args: argparse.Namespace) -> None:
     os.environ["TI_VISIBLE_DEVICE"] = str(local_rank)
     # FIXME: Forcing rendering device is not working reliably on all machines
     # os.environ["EGL_DEVICE_ID"] = str(local_rank)
-    gs.init(backend=gs.gpu, seed=local_rank)
+    ezsim.init(backend=ezsim.gpu, seed=local_rank)
 
     # sim
-    scene = gs.Scene(
-        viewer_options=gs.options.ViewerOptions(
+    scene = ezsim.Scene(
+        viewer_options=ezsim.options.ViewerOptions(
             camera_pos=(3.5, 0.0, 2.5),
             camera_lookat=(0.0, 0.0, 0.5),
             camera_fov=40,
@@ -50,9 +50,9 @@ def run_worker(args: argparse.Namespace) -> None:
         show_viewer=False,
         show_FPS=False,
     )
-    scene.add_entity(gs.morphs.Plane())
+    scene.add_entity(ezsim.morphs.Plane())
     scene.add_entity(
-        gs.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
+        ezsim.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
         visualize_contact=True,
     )
     scene.build(n_envs=args.n_envs)
@@ -92,7 +92,7 @@ def run_worker(args: argparse.Namespace) -> None:
     # cleanup
     dist.barrier()  # sync all ranks before shutting down NCCL
     dist.destroy_process_group()
-    gs.destroy()
+    ezsim.destroy()
 
 
 def parse_args():

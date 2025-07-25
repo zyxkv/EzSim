@@ -52,16 +52,16 @@ setup(
     cmdclass={"build_ext": build_ext},
     ext_modules=[
         Extension(
-            "genesis.ext.fast_simplification._simplify",
-            ["genesis/ext/fast_simplification/_simplify.pyx"],
+            "ezsim.ext.fast_simplification._simplify",
+            ["ezsim/ext/fast_simplification/_simplify.pyx"],
             include_dirs=[np.get_include()],
             language="c++",
             extra_compile_args=extra_compile_args,
             define_macros=macros,
         ),
         Extension(
-            "genesis.ext.fast_simplification._replay",
-            ["genesis/ext/fast_simplification/_replay.pyx"],
+            "ezsim.ext.fast_simplification._replay",
+            ["ezsim/ext/fast_simplification/_replay.pyx"],
             include_dirs=[np.get_include()],
             language="c++",
             extra_compile_args=extra_compile_args,

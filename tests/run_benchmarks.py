@@ -18,7 +18,7 @@ if [[ -z "${WANDB_API_KEY}" ]] ; then
 fi
 
 # Make sure that Genesis is properly installed, with including all its requirements
-pip uninstall --no-input -y genesis-world
+pip uninstall --no-input -y ezsim
 pip install --no-input --no-user --no-cache --quiet -e ".[dev]" "libigl==2.5.1"
 
 # Run the benchmarks

@@ -3,20 +3,20 @@ import uuid
 import numpy as np
 import pytest
 
-import genesis as gs
+import ezsim
 
 
 @pytest.fixture(scope="session")
 def pbd_material():
     """Fixture for common FEM material properties"""
-    return gs.materials.PBD.Elastic()
+    return ezsim.materials.PBD.Elastic()
 
 
-@pytest.mark.parametrize("backend", [gs.cpu])
+@pytest.mark.parametrize("backend", [ezsim.cpu])
 def test_maxvolume(pbd_material, show_viewer, box_obj_path):
     """Test that imposing a maximum element volume constraint produces a finer mesh (i.e., more elements)."""
-    scene = gs.Scene(
-        pbd_options=gs.options.PBDOptions(
+    scene = ezsim.Scene(
+        pbd_options=ezsim.options.PBDOptions(
             particle_size=0.1,
         ),
         show_viewer=show_viewer,
@@ -24,13 +24,13 @@ def test_maxvolume(pbd_material, show_viewer, box_obj_path):
 
     # Mesh without any maximum-element-volume constraint
     pbd1 = scene.add_entity(
-        morph=gs.morphs.Mesh(file=box_obj_path, nobisect=False, verbose=1),
+        morph=ezsim.morphs.Mesh(file=box_obj_path, nobisect=False, verbose=1),
         material=pbd_material,
     )
 
     # Mesh with maximum element volume limited to 0.001
     pbd2 = scene.add_entity(
-        morph=gs.morphs.Mesh(file=box_obj_path, nobisect=False, maxvolume=0.001, verbose=1),
+        morph=ezsim.morphs.Mesh(file=box_obj_path, nobisect=False, maxvolume=0.001, verbose=1),
         material=pbd_material,
     )
 

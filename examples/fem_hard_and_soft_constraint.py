@@ -1,4 +1,4 @@
-import genesis as gs
+import ezsim
 import numpy as np
 import torch
 import argparse
@@ -27,33 +27,33 @@ def main():
         dt = args.dt if args.dt is not None else 1e-3
         substeps = args.substeps if args.substeps is not None else 1
 
-    gs.init(backend=gs.gpu)
+    ezsim.init(backend=ezsim.gpu)
 
-    scene = gs.Scene(
-        sim_options=gs.options.SimOptions(
+    scene = ezsim.Scene(
+        sim_options=ezsim.options.SimOptions(
             dt=dt,
             substeps=substeps,
             gravity=(0, 0, -9.81),
         ),
-        fem_options=gs.options.FEMOptions(
+        fem_options=ezsim.options.FEMOptions(
             use_implicit_solver=args.solver == "implicit",
         ),
-        profiling_options=gs.options.ProfilingOptions(
+        profiling_options=ezsim.options.ProfilingOptions(
             show_FPS=False,
         ),
         show_viewer=args.vis,
     )
 
-    scene.add_entity(gs.morphs.Plane())
+    scene.add_entity(ezsim.morphs.Plane())
 
     blob = scene.add_entity(
-        morph=gs.morphs.Sphere(pos=tuple(map(sum, zip(SCENE_POS, (-0.3, -0.3, 0)))), radius=0.1),
-        material=gs.materials.FEM.Elastic(E=1.0e4, nu=0.45, rho=1000.0, model="stable_neohookean"),
+        morph=ezsim.morphs.Sphere(pos=tuple(map(sum, zip(SCENE_POS, (-0.3, -0.3, 0)))), radius=0.1),
+        material=ezsim.materials.FEM.Elastic(E=1.0e4, nu=0.45, rho=1000.0, model="stable_neohookean"),
     )
 
     cube = scene.add_entity(
-        morph=gs.morphs.Box(pos=tuple(map(sum, zip(SCENE_POS, (0.3, 0.3, 0)))), size=(0.2, 0.2, 0.2)),
-        material=gs.materials.FEM.Elastic(E=1.0e6, nu=0.45, rho=1000.0, model="stable_neohookean"),
+        morph=ezsim.morphs.Box(pos=tuple(map(sum, zip(SCENE_POS, (0.3, 0.3, 0)))), size=(0.2, 0.2, 0.2)),
+        material=ezsim.materials.FEM.Elastic(E=1.0e6, nu=0.45, rho=1000.0, model="stable_neohookean"),
     )
 
     video_fps = 1 / dt
@@ -133,14 +133,14 @@ def main():
                 cam.render()
 
     except KeyboardInterrupt:
-        gs.logger.info("Simulation interrupted, exiting.")
+        ezsim.logger.info("Simulation interrupted, exiting.")
     finally:
-        gs.logger.info("Simulation finished.")
+        ezsim.logger.info("Simulation finished.")
 
         actual_fps = video_fps / frame_interval
         video_filename = f"fem_hard_soft_{args.solver}_dt={dt}_substeps={substeps}.mp4"
         cam.stop_recording(save_to_filename=video_filename, fps=actual_fps)
-        gs.logger.info(f"Saved video to {video_filename}")
+        ezsim.logger.info(f"Saved video to {video_filename}")
 
 
 if __name__ == "__main__":

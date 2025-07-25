@@ -5,7 +5,7 @@ import pickle
 import torch
 from go2_env import Go2Env
 
-import genesis as gs
+import ezsim
 
 
 def get_cfgs():
@@ -111,7 +111,7 @@ def main():
     parser.add_argument("-e", "--exp_name", type=str, default="single")
     args = parser.parse_args()
 
-    gs.init()
+    ezsim.init()
 
     env_cfg, obs_cfg, reward_cfg, command_cfg = get_cfgs()
 
@@ -132,7 +132,7 @@ def main():
     )
 
     policy = torch.jit.load(f"./backflip/{args.exp_name}.pt")
-    policy.to(device=gs.device)
+    policy.to(device=ezsim.device)
 
     obs, _ = env.reset()
     with torch.no_grad():

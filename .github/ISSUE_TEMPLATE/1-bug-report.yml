@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to fill out this bug report, please make sure to [search for existing issues](https://github.com/Genesis-Embodied-AI/Genesis/issues) before filing a new one!
+        Thanks for taking the time to fill out this bug report, please make sure to [search for existing issues](https://github.com/zyxkv/EzSim/issues) before filing a new one!
   - type: textarea
     id: bug-description
     attributes:
@@ -24,11 +24,11 @@ body:
         If possible, provide a script triggering the bug, e.g.
         ```python
         # code snippet triggering the bug
-        import genesis as gs
-        gs.init()
-        scene = gs.Scene(show_viewer=False)
+        import ezsim
+        ezsim.init()
+        scene = ezsim.Scene(show_viewer=False)
         broken = scene.add_entity(
-            gs.morphs.MJCF(file='attachement.xml'),
+            ezsim.morphs.MJCF(file='attachement.xml'),
         )
         scene.build()
         ```
@@ -37,11 +37,11 @@ body:
         If possible, provide a script triggering the bug, e.g.
         ```python
         # code snippet triggering the bug
-        import genesis as gs
-        gs.init()
-        scene = gs.Scene(show_viewer=False)
+        import ezsim
+        ezsim.init()
+        scene = ezsim.Scene(show_viewer=False)
         broken = scene.add_entity(
-            gs.morphs.MJCF(file='attachement.xml'),
+            ezsim.morphs.MJCF(file='attachement.xml'),
         )
         scene.build()
         ```

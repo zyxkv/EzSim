@@ -1,26 +1,26 @@
 import numpy as np
 
-import genesis as gs
+import ezsim
 
 ########################## init ##########################
-gs.init(backend=gs.gpu)
+ezsim.init(backend=ezsim.gpu)
 
 ########################## create a scene ##########################
 
-scene = gs.Scene(
+scene = ezsim.Scene(
     show_viewer=False,
-    rigid_options=gs.options.RigidOptions(
+    rigid_options=ezsim.options.RigidOptions(
         dt=0.01,
-        constraint_solver=gs.constraint_solver.Newton,
+        constraint_solver=ezsim.constraint_solver.Newton,
     ),
 )
 
 ########################## entities ##########################
 scene.add_entity(
-    gs.morphs.Plane(),
+    ezsim.morphs.Plane(),
 )
 robot = scene.add_entity(
-    gs.morphs.URDF(
+    ezsim.morphs.URDF(
         file="urdf/anymal_c/urdf/anymal_c.urdf",
         pos=(0, 0, 0.8),
     ),

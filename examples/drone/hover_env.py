@@ -1,11 +1,11 @@
 import torch
 import math
 import copy
-import genesis as gs
-from genesis.utils.geom import quat_to_xyz, transform_by_quat, inv_quat, transform_quat_by_quat
+import ezsim
+from ezsim.utils.geom import quat_to_xyz, transform_by_quat, inv_quat, transform_quat_by_quat
 
 
-def gs_rand_float(lower, upper, shape, device):
+def ezsim_rand_float(lower, upper, shape, device):
     return (upper - lower) * torch.rand(size=shape, device=device) + lower
 
 
@@ -17,7 +17,7 @@ class HoverEnv:
         self.num_privileged_obs = None
         self.num_actions = env_cfg["num_actions"]
         self.num_commands = command_cfg["num_commands"]
-        self.device = gs.device
+        self.device = ezsim.device
 
         self.simulate_action_latency = env_cfg["simulate_action_latency"]
         self.dt = 0.01  # run in 100hz
@@ -32,18 +32,18 @@ class HoverEnv:
         self.reward_scales = copy.deepcopy(reward_cfg["reward_scales"])
 
         # create scene
-        self.scene = gs.Scene(
-            sim_options=gs.options.SimOptions(dt=self.dt, substeps=2),
-            viewer_options=gs.options.ViewerOptions(
+        self.scene = ezsim.Scene(
+            sim_options=ezsim.options.SimOptions(dt=self.dt, substeps=2),
+            viewer_options=ezsim.options.ViewerOptions(
                 max_FPS=env_cfg["max_visualize_FPS"],
                 camera_pos=(3.0, 0.0, 3.0),
                 camera_lookat=(0.0, 0.0, 1.0),
                 camera_fov=40,
             ),
-            vis_options=gs.options.VisOptions(rendered_envs_idx=list(range(self.rendered_env_num))),
-            rigid_options=gs.options.RigidOptions(
+            vis_options=ezsim.options.VisOptions(rendered_envs_idx=list(range(self.rendered_env_num))),
+            rigid_options=ezsim.options.RigidOptions(
                 dt=self.dt,
-                constraint_solver=gs.constraint_solver.Newton,
+                constraint_solver=ezsim.constraint_solver.Newton,
                 enable_collision=True,
                 enable_joint_limit=True,
             ),
@@ -51,19 +51,19 @@ class HoverEnv:
         )
 
         # add plane
-        self.scene.add_entity(gs.morphs.Plane())
+        self.scene.add_entity(ezsim.morphs.Plane())
 
         # add target
         if self.env_cfg["visualize_target"]:
             self.target = self.scene.add_entity(
-                morph=gs.morphs.Mesh(
+                morph=ezsim.morphs.Mesh(
                     file="meshes/sphere.obj",
                     scale=0.05,
                     fixed=False,
                     collision=False,
                 ),
-                surface=gs.surfaces.Rough(
-                    diffuse_texture=gs.textures.ColorTexture(
+                surface=ezsim.surfaces.Rough(
+                    diffuse_texture=ezsim.textures.ColorTexture(
                         color=(1.0, 0.5, 0.5),
                     ),
                 ),
@@ -82,10 +82,10 @@ class HoverEnv:
             )
 
         # add drone
-        self.base_init_pos = torch.tensor(self.env_cfg["base_init_pos"], device=gs.device)
-        self.base_init_quat = torch.tensor(self.env_cfg["base_init_quat"], device=gs.device)
+        self.base_init_pos = torch.tensor(self.env_cfg["base_init_pos"], device=ezsim.device)
+        self.base_init_quat = torch.tensor(self.env_cfg["base_init_quat"], device=ezsim.device)
         self.inv_base_init_quat = inv_quat(self.base_init_quat)
-        self.drone = self.scene.add_entity(gs.morphs.Drone(file="urdf/drones/cf2x.urdf"))
+        self.drone = self.scene.add_entity(ezsim.morphs.Drone(file="urdf/drones/cf2x.urdf"))
 
         # build scene
         self.scene.build(n_envs=num_envs)
@@ -95,31 +95,31 @@ class HoverEnv:
         for name in self.reward_scales.keys():
             self.reward_scales[name] *= self.dt
             self.reward_functions[name] = getattr(self, "_reward_" + name)
-            self.episode_sums[name] = torch.zeros((self.num_envs,), device=gs.device, dtype=gs.tc_float)
+            self.episode_sums[name] = torch.zeros((self.num_envs,), device=ezsim.device, dtype=ezsim.tc_float)
 
         # initialize buffers
-        self.obs_buf = torch.zeros((self.num_envs, self.num_obs), device=gs.device, dtype=gs.tc_float)
-        self.rew_buf = torch.zeros((self.num_envs,), device=gs.device, dtype=gs.tc_float)
-        self.reset_buf = torch.ones((self.num_envs,), device=gs.device, dtype=gs.tc_int)
-        self.episode_length_buf = torch.zeros((self.num_envs,), device=gs.device, dtype=gs.tc_int)
-        self.commands = torch.zeros((self.num_envs, self.num_commands), device=gs.device, dtype=gs.tc_float)
+        self.obs_buf = torch.zeros((self.num_envs, self.num_obs), device=ezsim.device, dtype=ezsim.tc_float)
+        self.rew_buf = torch.zeros((self.num_envs,), device=ezsim.device, dtype=ezsim.tc_float)
+        self.reset_buf = torch.ones((self.num_envs,), device=ezsim.device, dtype=ezsim.tc_int)
+        self.episode_length_buf = torch.zeros((self.num_envs,), device=ezsim.device, dtype=ezsim.tc_int)
+        self.commands = torch.zeros((self.num_envs, self.num_commands), device=ezsim.device, dtype=ezsim.tc_float)
 
-        self.actions = torch.zeros((self.num_envs, self.num_actions), device=gs.device, dtype=gs.tc_float)
+        self.actions = torch.zeros((self.num_envs, self.num_actions), device=ezsim.device, dtype=ezsim.tc_float)
         self.last_actions = torch.zeros_like(self.actions)
 
-        self.base_pos = torch.zeros((self.num_envs, 3), device=gs.device, dtype=gs.tc_float)
-        self.base_quat = torch.zeros((self.num_envs, 4), device=gs.device, dtype=gs.tc_float)
-        self.base_lin_vel = torch.zeros((self.num_envs, 3), device=gs.device, dtype=gs.tc_float)
-        self.base_ang_vel = torch.zeros((self.num_envs, 3), device=gs.device, dtype=gs.tc_float)
+        self.base_pos = torch.zeros((self.num_envs, 3), device=ezsim.device, dtype=ezsim.tc_float)
+        self.base_quat = torch.zeros((self.num_envs, 4), device=ezsim.device, dtype=ezsim.tc_float)
+        self.base_lin_vel = torch.zeros((self.num_envs, 3), device=ezsim.device, dtype=ezsim.tc_float)
+        self.base_ang_vel = torch.zeros((self.num_envs, 3), device=ezsim.device, dtype=ezsim.tc_float)
         self.last_base_pos = torch.zeros_like(self.base_pos)
 
         self.extras = dict()  # extra information for logging
         self.extras["observations"] = dict()
 
     def _resample_commands(self, envs_idx):
-        self.commands[envs_idx, 0] = gs_rand_float(*self.command_cfg["pos_x_range"], (len(envs_idx),), gs.device)
-        self.commands[envs_idx, 1] = gs_rand_float(*self.command_cfg["pos_y_range"], (len(envs_idx),), gs.device)
-        self.commands[envs_idx, 2] = gs_rand_float(*self.command_cfg["pos_z_range"], (len(envs_idx),), gs.device)
+        self.commands[envs_idx, 0] = ezsim_rand_float(*self.command_cfg["pos_x_range"], (len(envs_idx),), ezsim.device)
+        self.commands[envs_idx, 1] = ezsim_rand_float(*self.command_cfg["pos_y_range"], (len(envs_idx),), ezsim.device)
+        self.commands[envs_idx, 2] = ezsim_rand_float(*self.command_cfg["pos_z_range"], (len(envs_idx),), ezsim.device)
 
     def _at_target(self):
         return (
@@ -171,7 +171,7 @@ class HoverEnv:
         self.reset_buf = (self.episode_length_buf > self.max_episode_length) | self.crash_condition
 
         time_out_idx = (self.episode_length_buf > self.max_episode_length).nonzero(as_tuple=False).reshape((-1,))
-        self.extras["time_outs"] = torch.zeros_like(self.reset_buf, device=gs.device, dtype=gs.tc_float)
+        self.extras["time_outs"] = torch.zeros_like(self.reset_buf, device=ezsim.device, dtype=ezsim.tc_float)
         self.extras["time_outs"][time_out_idx] = 1.0
 
         self.reset_idx(self.reset_buf.nonzero(as_tuple=False).reshape((-1,)))
@@ -240,7 +240,7 @@ class HoverEnv:
 
     def reset(self):
         self.reset_buf[:] = True
-        self.reset_idx(torch.arange(self.num_envs, device=gs.device))
+        self.reset_idx(torch.arange(self.num_envs, device=ezsim.device))
         return self.obs_buf, None
 
     # ------------ reward functions----------------
@@ -263,6 +263,6 @@ class HoverEnv:
         return angular_rew
 
     def _reward_crash(self):
-        crash_rew = torch.zeros((self.num_envs,), device=gs.device, dtype=gs.tc_float)
+        crash_rew = torch.zeros((self.num_envs,), device=ezsim.device, dtype=ezsim.tc_float)
         crash_rew[self.crash_condition] = 1
         return crash_rew

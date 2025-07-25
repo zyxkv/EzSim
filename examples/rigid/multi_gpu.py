@@ -4,7 +4,7 @@ import argparse
 
 import torch
 
-import genesis as gs
+import ezsim
 
 
 def main():
@@ -17,11 +17,11 @@ def main():
     # get current gpu
     gpu_id = torch.cuda.current_device()
     print("gpu_id:", gpu_id)
-    gs.init(backend=gs.gpu, logger_verbose_time=True)
+    ezsim.init(backend=ezsim.gpu, logger_verbose_time=True)
 
     ########################## create a scene ##########################
-    scene = gs.Scene(
-        viewer_options=gs.options.ViewerOptions(
+    scene = ezsim.Scene(
+        viewer_options=ezsim.options.ViewerOptions(
             camera_pos=(3.5, 0.0, 2.5),
             camera_lookat=(0.0, 0.0, 0.5),
             camera_fov=40,
@@ -32,10 +32,10 @@ def main():
 
     ########################## entities ##########################
     plane = scene.add_entity(
-        gs.morphs.Plane(),
+        ezsim.morphs.Plane(),
     )
     franka = scene.add_entity(
-        gs.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
+        ezsim.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
         visualize_contact=True,
     )
 

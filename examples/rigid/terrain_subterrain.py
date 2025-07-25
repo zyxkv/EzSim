@@ -4,7 +4,7 @@ import time
 import numpy as np
 import torch
 
-import genesis as gs
+import ezsim
 
 
 def main():
@@ -15,16 +15,16 @@ def main():
     args = parser.parse_args()
 
     ########################## init ##########################
-    gs.init(seed=0, backend=gs.cpu if args.cpu else gs.gpu)
+    ezsim.init(seed=0, backend=ezsim.cpu if args.cpu else ezsim.gpu)
 
     ########################## create a scene ##########################
 
-    scene = gs.Scene(
-        rigid_options=gs.options.RigidOptions(
+    scene = ezsim.Scene(
+        rigid_options=ezsim.options.RigidOptions(
             dt=0.01,
-            constraint_solver=gs.constraint_solver.Newton,
+            constraint_solver=ezsim.constraint_solver.Newton,
         ),
-        viewer_options=gs.options.ViewerOptions(
+        viewer_options=ezsim.options.ViewerOptions(
             camera_pos=(-5.0, -5.0, 10.0),
             camera_lookat=(5.0, 5.0, 0.0),
             camera_fov=40,
@@ -36,7 +36,7 @@ def main():
     vertical_scale = 0.005
     ########################## entities ##########################
     terrain = scene.add_entity(
-        morph=gs.morphs.Terrain(
+        morph=ezsim.morphs.Terrain(
             n_subterrains=(2, 2),
             subterrain_size=(6.0, 6.0),
             horizontal_scale=horizontal_scale,
@@ -48,7 +48,7 @@ def main():
         ),
     )
     ball = scene.add_entity(
-        morph=gs.morphs.Sphere(
+        morph=ezsim.morphs.Sphere(
             pos=(1.0, 1.0, 1.0),
             radius=0.1,
         ),

@@ -16,7 +16,7 @@ except (metadata.PackageNotFoundError, ImportError) as e:
     raise ImportError("Please uninstall 'rsl_rl' and install 'rsl-rl-lib==2.2.4'.") from e
 from rsl_rl.runners import OnPolicyRunner
 
-import genesis as gs
+import ezsim
 
 from hover_env import HoverEnv
 
@@ -28,7 +28,7 @@ def main():
     parser.add_argument("--record", action="store_true", default=False)
     args = parser.parse_args()
 
-    gs.init()
+    ezsim.init()
 
     log_dir = f"logs/{args.exp_name}"
     env_cfg, obs_cfg, reward_cfg, command_cfg, train_cfg = pickle.load(open(f"logs/{args.exp_name}/cfgs.pkl", "rb"))
@@ -50,10 +50,10 @@ def main():
         show_viewer=True,
     )
 
-    runner = OnPolicyRunner(env, train_cfg, log_dir, device=gs.device)
+    runner = OnPolicyRunner(env, train_cfg, log_dir, device=ezsim.device)
     resume_path = os.path.join(log_dir, f"model_{args.ckpt}.pt")
     runner.load(resume_path)
-    policy = runner.get_inference_policy(device=gs.device)
+    policy = runner.get_inference_policy(device=ezsim.device)
 
     obs, _ = env.reset()
 

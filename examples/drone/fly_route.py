@@ -1,8 +1,8 @@
-import genesis as gs
+import ezsim
 import math
 from quadcopter_controller import DronePIDController
-from genesis.engine.entities.drone_entity import DroneEntity
-from genesis.vis.camera import Camera
+from ezsim.engine.entities.drone_entity import DroneEntity
+from ezsim.vis.camera import Camera
 
 base_rpm = 14468.429183500699
 min_rpm = 0.9 * base_rpm
@@ -17,7 +17,7 @@ def clamp(rpm):
     return max(min_rpm, min(int(rpm), max_rpm))
 
 
-def fly_to_point(target, controller: DronePIDController, scene: gs.Scene, cam: Camera):
+def fly_to_point(target, controller: DronePIDController, scene: ezsim.Scene, cam: Camera):
     drone = controller.drone
     step = 0
     x = target[0] - drone.get_pos()[0]
@@ -50,15 +50,15 @@ def fly_to_point(target, controller: DronePIDController, scene: gs.Scene, cam: C
 
 
 def main():
-    gs.init(backend=gs.gpu)
+    ezsim.init(backend=ezsim.gpu)
 
     ##### scene #####
-    scene = gs.Scene(show_viewer=False, sim_options=gs.options.SimOptions(dt=0.01))
+    scene = ezsim.Scene(show_viewer=False, sim_options=ezsim.options.SimOptions(dt=0.01))
 
     ##### entities #####
-    plane = scene.add_entity(morph=gs.morphs.Plane())
+    plane = scene.add_entity(morph=ezsim.morphs.Plane())
 
-    drone = scene.add_entity(morph=gs.morphs.Drone(file="urdf/drones/cf2x.urdf", pos=(0, 0, 0.2)))
+    drone = scene.add_entity(morph=ezsim.morphs.Drone(file="urdf/drones/cf2x.urdf", pos=(0, 0, 0.2)))
 
     # parameters are tuned such that the
     # drone can fly, not optimized

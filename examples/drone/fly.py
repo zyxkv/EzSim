@@ -3,7 +3,7 @@ import threading
 
 import numpy as np
 
-import genesis as gs
+import ezsim
 
 
 def main():
@@ -12,18 +12,18 @@ def main():
     args = parser.parse_args()
 
     ########################## init ##########################
-    gs.init(backend=gs.cpu)
+    ezsim.init(backend=ezsim.cpu)
 
     ########################## create a scene ##########################
-    viewer_options = gs.options.ViewerOptions(
+    viewer_options = ezsim.options.ViewerOptions(
         camera_pos=(2.5, 0.0, 1.5),
         camera_lookat=(0.0, 0.0, 0.5),
         camera_fov=30,
         max_FPS=60,
     )
 
-    scene = gs.Scene(
-        sim_options=gs.options.SimOptions(
+    scene = ezsim.Scene(
+        sim_options=ezsim.options.SimOptions(
             dt=0.01,
         ),
         viewer_options=viewer_options,
@@ -32,10 +32,10 @@ def main():
 
     ########################## entities ##########################
     plane = scene.add_entity(
-        gs.morphs.Plane(),
+        ezsim.morphs.Plane(),
     )
     drone = scene.add_entity(
-        morph=gs.morphs.Drone(
+        morph=ezsim.morphs.Drone(
             file="urdf/drones/cf2x.urdf",
             pos=(0.0, 0, 0.02),
         ),

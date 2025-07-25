@@ -1,6 +1,6 @@
 import threading
 
-import genesis as gs
+import ezsim
 
 
 def run_sim(scene):
@@ -10,16 +10,16 @@ def run_sim(scene):
 
 def main():
     ########################## init ##########################
-    gs.init()
+    ezsim.init()
 
     ########################## create a scene ##########################
 
-    scene = gs.Scene(
-        rigid_options=gs.options.RigidOptions(
+    scene = ezsim.Scene(
+        rigid_options=ezsim.options.RigidOptions(
             dt=0.01,
             gravity=(0.0, 0.0, -10.0),
         ),
-        viewer_options=gs.options.ViewerOptions(
+        viewer_options=ezsim.options.ViewerOptions(
             camera_pos=(3.5, 0.0, 2.5),
             camera_lookat=(0.0, 0.0, 0.5),
             camera_fov=40,
@@ -30,9 +30,9 @@ def main():
     )
 
     ########################## entities ##########################
-    plane = scene.add_entity(gs.morphs.Plane())
+    plane = scene.add_entity(ezsim.morphs.Plane())
     r0 = scene.add_entity(
-        gs.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
+        ezsim.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
     )
 
     ########################## build ##########################

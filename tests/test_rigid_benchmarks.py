@@ -12,7 +12,7 @@ import pytest
 import torch
 import wandb
 
-import genesis as gs
+import ezsim
 
 from .utils import (
     get_hardware_fingerprint,
@@ -61,7 +61,7 @@ def get_rigid_solver_options(**kwargs):
             enable_mujoco_compatibility=True,
             enable_self_collision=False,
             constraint_timeconst=2 * STEP_DT,
-            constraint_solver=gs.constraint_solver.CG,
+            constraint_solver=ezsim.constraint_solver.CG,
             max_collision_pairs=100,
             iterations=50,
             tolerance=1e-5,
@@ -74,7 +74,7 @@ def get_rigid_solver_options(**kwargs):
             enable_mujoco_compatibility=True,
             enable_self_collision=False,
             constraint_resolve_time=2 * STEP_DT,
-            constraint_solver=gs.constraint_solver.CG,
+            constraint_solver=ezsim.constraint_solver.CG,
             max_collision_pairs=100,
             iterations=50,
             tolerance=1e-5,
@@ -132,7 +132,7 @@ def get_file_morph_options(**kwargs):
             decimate=False,
             decimate_aggressiveness=7,
             decompose_robot_error_threshold=float("inf"),
-            coacd_options=gs.options.CoacdOptions(
+            coacd_options=ezsim.options.CoacdOptions(
                 resolution=2000,
                 mcts_iterations=150,
                 extrude_margin=0.01,
@@ -145,7 +145,7 @@ def get_file_morph_options(**kwargs):
             decimate=False,
             decimate_aggressiveness=7,
             decompose_robot_error_threshold=float("inf"),
-            coacd_options=gs.options.CoacdOptions(
+            coacd_options=ezsim.options.CoacdOptions(
                 resolution=2000,
                 mcts_iterations=150,
                 extrude_margin=0.01,
@@ -157,7 +157,7 @@ def get_file_morph_options(**kwargs):
             decimate=False,
             decimate_aggressiveness=7,
             decompose_error_threshold=float("inf"),
-            coacd_options=gs.options.CoacdOptions(
+            coacd_options=ezsim.options.CoacdOptions(
                 resolution=2000,
                 mcts_iterations=150,
                 extrude_margin=0.01,
@@ -169,7 +169,7 @@ def get_file_morph_options(**kwargs):
         options = dict(
             decimate=False,
             decompose_error_threshold=float("inf"),
-            coacd_options=gs.options.CoacdOptions(
+            coacd_options=ezsim.options.CoacdOptions(
                 resolution=2000,
                 mcts_iterations=150,
                 extrude_margin=0.01,
@@ -179,7 +179,7 @@ def get_file_morph_options(**kwargs):
         # * 'decompose_error_threshold' default value updated to 0.15
         options = dict(
             decompose_error_threshold=float("inf"),
-            coacd_options=gs.options.CoacdOptions(
+            coacd_options=ezsim.options.CoacdOptions(
                 resolution=2000,
                 mcts_iterations=150,
                 extrude_margin=0.01,
@@ -193,7 +193,7 @@ def get_file_morph_options(**kwargs):
         # * 'CoacdOptions' options has been updated
         options = dict(
             decompose_error_threshold=float("inf"),
-            coacd_options=gs.options.CoacdOptions(
+            coacd_options=ezsim.options.CoacdOptions(
                 resolution=2000,
                 mcts_iterations=150,
                 extrude_margin=0.01,
@@ -256,10 +256,10 @@ def factory_logger(stream_writers):
             nonlocal stream_writers
 
             if "WANDB_API_KEY" in os.environ:
-                assert gs.backend is not None
+                assert ezsim.backend is not None
                 revision, timestamp = get_git_commit_info()
 
-                hardware_fringerprint = get_hardware_fingerprint(include_gpu=(gs.backend != gs.cpu))
+                hardware_fringerprint = get_hardware_fingerprint(include_gpu=(ezsim.backend != ezsim.cpu))
                 platform_fringerprint = get_platform_fingerprint()
                 machine_uuid = hashlib.md5(
                     "-".join((hardware_fringerprint, platform_fringerprint)).encode("UTF-8")
@@ -274,7 +274,7 @@ def factory_logger(stream_writers):
                 ).hexdigest()
 
                 self.wandb_run = wandb.init(
-                    project="genesis-benchmarks",
+                    project="ezsim-benchmarks",
                     name="-".join((self.benchmark_id, revision)),
                     id=run_uuid,
                     tags=[BENCHMARK_NAME, benchmark_uuid],
@@ -284,7 +284,7 @@ def factory_logger(stream_writers):
                         "machine_uuid": machine_uuid,
                         "hardware": hardware_fringerprint,
                         "platform": platform_fringerprint,
-                        "backend": str(gs.backend.name),
+                        "backend": str(ezsim.backend.name),
                         "benchmark_id": self.benchmark_id,
                         **self.hparams,
                     },
@@ -324,8 +324,8 @@ def factory_logger(stream_writers):
 
 @pytest.fixture
 def anymal_c(solver, n_envs, gjk):
-    scene = gs.Scene(
-        rigid_options=gs.options.RigidOptions(
+    scene = ezsim.Scene(
+        rigid_options=ezsim.options.RigidOptions(
             **get_rigid_solver_options(
                 dt=STEP_DT,
                 constraint_solver=solver,
@@ -333,7 +333,7 @@ def anymal_c(solver, n_envs, gjk):
                 use_gjk_collision=gjk,
             )
         ),
-        viewer_options=gs.options.ViewerOptions(
+        viewer_options=ezsim.options.ViewerOptions(
             camera_pos=(3.5, 0.0, 2.5),
             camera_lookat=(0.0, 0.0, 0.5),
             camera_fov=40,
@@ -342,9 +342,9 @@ def anymal_c(solver, n_envs, gjk):
         show_FPS=False,
     )
 
-    scene.add_entity(gs.morphs.Plane())
+    scene.add_entity(ezsim.morphs.Plane())
     robot = scene.add_entity(
-        gs.morphs.URDF(
+        ezsim.morphs.URDF(
             **get_file_morph_options(
                 file="urdf/anymal_c/urdf/anymal_c.urdf",
                 pos=(0, 0, 0.8),
@@ -397,8 +397,8 @@ def anymal_c(solver, n_envs, gjk):
 
 @pytest.fixture
 def batched_franka(solver, n_envs, gjk):
-    scene = gs.Scene(
-        rigid_options=gs.options.RigidOptions(
+    scene = ezsim.Scene(
+        rigid_options=ezsim.options.RigidOptions(
             **get_rigid_solver_options(
                 dt=STEP_DT,
                 constraint_solver=solver,
@@ -406,7 +406,7 @@ def batched_franka(solver, n_envs, gjk):
                 use_gjk_collision=gjk,
             )
         ),
-        viewer_options=gs.options.ViewerOptions(
+        viewer_options=ezsim.options.ViewerOptions(
             camera_pos=(3.5, 0.0, 2.5),
             camera_lookat=(0.0, 0.0, 0.5),
             camera_fov=40,
@@ -415,9 +415,9 @@ def batched_franka(solver, n_envs, gjk):
         show_FPS=False,
     )
 
-    scene.add_entity(gs.morphs.Plane())
+    scene.add_entity(ezsim.morphs.Plane())
     scene.add_entity(
-        gs.morphs.MJCF(
+        ezsim.morphs.MJCF(
             **get_file_morph_options(
                 file="xml/franka_emika_panda/panda.xml",
             )
@@ -449,8 +449,8 @@ def batched_franka(solver, n_envs, gjk):
 
 @pytest.fixture
 def random(solver, n_envs, gjk):
-    scene = gs.Scene(
-        rigid_options=gs.options.RigidOptions(
+    scene = ezsim.Scene(
+        rigid_options=ezsim.options.RigidOptions(
             **get_rigid_solver_options(
                 dt=STEP_DT,
                 constraint_solver=solver,
@@ -458,7 +458,7 @@ def random(solver, n_envs, gjk):
                 use_gjk_collision=gjk,
             )
         ),
-        viewer_options=gs.options.ViewerOptions(
+        viewer_options=ezsim.options.ViewerOptions(
             camera_pos=(3.5, 0.0, 2.5),
             camera_lookat=(0.0, 0.0, 0.5),
             camera_fov=40,
@@ -467,9 +467,9 @@ def random(solver, n_envs, gjk):
         show_FPS=False,
     )
 
-    scene.add_entity(gs.morphs.Plane())
+    scene.add_entity(ezsim.morphs.Plane())
     robot = scene.add_entity(
-        gs.morphs.URDF(
+        ezsim.morphs.URDF(
             **get_file_morph_options(
                 file="urdf/anymal_c/urdf/anymal_c.urdf",
                 pos=(0, 0, 0.8),
@@ -482,14 +482,14 @@ def random(solver, n_envs, gjk):
     compile_time = time.time() - time_start
 
     robot.set_dofs_kp(np.full((12,), fill_value=1000.0), np.arange(6, 18))
-    dofs = torch.arange(6, 18, device=gs.device)
-    robot.control_dofs_position(torch.zeros((n_envs, 12), device=gs.device), dofs)
+    dofs = torch.arange(6, 18, device=ezsim.device)
+    robot.control_dofs_position(torch.zeros((n_envs, 12), device=ezsim.device), dofs)
 
     num_steps = 0
     is_recording = False
     time_start = time.time()
     while True:
-        robot.control_dofs_position(torch.rand((n_envs, 12), device=gs.device) * 0.1 - 0.05, dofs)
+        robot.control_dofs_position(torch.rand((n_envs, 12), device=ezsim.device) * 0.1 - 0.05, dofs)
         scene.step()
         time_elapsed = time.time() - time_start
         if is_recording:
@@ -507,8 +507,8 @@ def random(solver, n_envs, gjk):
 
 @pytest.fixture
 def cubes(solver, n_envs, n_cubes, enable_island, gjk):
-    scene = gs.Scene(
-        rigid_options=gs.options.RigidOptions(
+    scene = ezsim.Scene(
+        rigid_options=ezsim.options.RigidOptions(
             **get_rigid_solver_options(
                 dt=STEP_DT,
                 constraint_solver=solver,
@@ -516,7 +516,7 @@ def cubes(solver, n_envs, n_cubes, enable_island, gjk):
                 use_gjk_collision=gjk,
             )
         ),
-        viewer_options=gs.options.ViewerOptions(
+        viewer_options=ezsim.options.ViewerOptions(
             camera_pos=(3.5, 0.0, 2.5),
             camera_lookat=(0.0, 0.0, 0.5),
             camera_fov=40,
@@ -525,10 +525,10 @@ def cubes(solver, n_envs, n_cubes, enable_island, gjk):
         show_FPS=False,
     )
 
-    scene.add_entity(gs.morphs.Plane())
+    scene.add_entity(ezsim.morphs.Plane())
     for i in range(n_cubes):
         scene.add_entity(
-            gs.morphs.Box(
+            ezsim.morphs.Box(
                 size=(0.1, 0.1, 0.1),
                 pos=(0.0, 0.2 * i, 0.045),
             ),
@@ -560,8 +560,8 @@ def cubes(solver, n_envs, n_cubes, enable_island, gjk):
 def box_pyramid(solver, n_envs, n_cubes, enable_island, gjk, enable_mujoco_compatibility):
     x_pos = 0.0
 
-    scene = gs.Scene(
-        rigid_options=gs.options.RigidOptions(
+    scene = ezsim.Scene(
+        rigid_options=ezsim.options.RigidOptions(
             **get_rigid_solver_options(
                 dt=STEP_DT,
                 constraint_solver=solver,
@@ -571,7 +571,7 @@ def box_pyramid(solver, n_envs, n_cubes, enable_island, gjk, enable_mujoco_compa
                 enable_mujoco_compatibility=enable_mujoco_compatibility,
             )
         ),
-        viewer_options=gs.options.ViewerOptions(
+        viewer_options=ezsim.options.ViewerOptions(
             camera_pos=(x_pos, -3.5, 2.5),
             camera_lookat=(x_pos, 0.0, 0.5),
             camera_fov=30,
@@ -581,7 +581,7 @@ def box_pyramid(solver, n_envs, n_cubes, enable_island, gjk, enable_mujoco_compa
         show_FPS=False,
     )
 
-    scene.add_entity(gs.morphs.Plane(pos=(x_pos, 0, 0)))
+    scene.add_entity(ezsim.morphs.Plane(pos=(x_pos, 0, 0)))
     # create pyramid of boxes
     box_size = 0.25
     box_spacing = box_size
@@ -590,7 +590,7 @@ def box_pyramid(solver, n_envs, n_cubes, enable_island, gjk, enable_mujoco_compa
     for i in range(n_cubes):
         for j in range(n_cubes - i):
             scene.add_entity(
-                gs.morphs.Box(
+                ezsim.morphs.Box(
                     size=box_size * vec_one,
                     pos=box_pos_offset + box_spacing * np.array([i + 0.5 * j, 0.0, j]),
                 ),
@@ -620,7 +620,7 @@ def box_pyramid(solver, n_envs, n_cubes, enable_island, gjk, enable_mujoco_compa
 
 
 @pytest.mark.parametrize("runnable", ["anymal_c", "batched_franka"])
-@pytest.mark.parametrize("solver", [gs.constraint_solver.CG, gs.constraint_solver.Newton])
+@pytest.mark.parametrize("solver", [ezsim.constraint_solver.CG, ezsim.constraint_solver.Newton])
 @pytest.mark.parametrize("n_envs", [30000])
 @pytest.mark.parametrize("gjk", [False, True])
 def test_speed(factory_logger, request, runnable, solver, n_envs, gjk):
@@ -636,7 +636,7 @@ def test_speed(factory_logger, request, runnable, solver, n_envs, gjk):
         logger.write(request.getfixturevalue(runnable))
 
 
-@pytest.mark.parametrize("solver", [gs.constraint_solver.CG, gs.constraint_solver.Newton])
+@pytest.mark.parametrize("solver", [ezsim.constraint_solver.CG, ezsim.constraint_solver.Newton])
 @pytest.mark.parametrize("n_cubes", [10])
 # Will skipt constraint_solver_decomp_island.py and migrate this file later.
 # Right now, island is kind of outdated, including those equality constraints.
@@ -659,7 +659,7 @@ def test_cubes(factory_logger, request, n_cubes, solver, enable_island, n_envs, 
 
 # FIXME:Increasing the batch size triggers CUDA out-of-memory error (Nvidia H100)
 # FIXME:Increasing # cubes triggers CUDA illegal memory access error for all collision methods (Nvidia RTX 5900)
-@pytest.mark.parametrize("solver", [gs.constraint_solver.Newton])
+@pytest.mark.parametrize("solver", [ezsim.constraint_solver.Newton])
 @pytest.mark.parametrize("n_cubes", [5])
 @pytest.mark.parametrize("enable_island", [False])
 @pytest.mark.parametrize("n_envs", [2048])

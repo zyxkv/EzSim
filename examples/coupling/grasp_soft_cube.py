@@ -2,7 +2,7 @@ import argparse
 
 import numpy as np
 
-import genesis as gs
+import ezsim
 
 
 def main():
@@ -11,26 +11,26 @@ def main():
     args = parser.parse_args()
 
     ########################## init ##########################
-    gs.init(backend=gs.gpu)
+    ezsim.init(backend=ezsim.gpu)
 
     ########################## create a scene ##########################
 
-    scene = gs.Scene(
-        sim_options=gs.options.SimOptions(
+    scene = ezsim.Scene(
+        sim_options=ezsim.options.SimOptions(
             dt=5e-3,
             substeps=15,
         ),
-        viewer_options=gs.options.ViewerOptions(
+        viewer_options=ezsim.options.ViewerOptions(
             camera_pos=(3, -1, 1.5),
             camera_lookat=(0.0, 0.0, 0.0),
             camera_fov=30,
             max_FPS=60,
         ),
         show_viewer=args.vis,
-        vis_options=gs.options.VisOptions(
+        vis_options=ezsim.options.VisOptions(
             visualize_mpm_boundary=True,
         ),
-        mpm_options=gs.options.MPMOptions(
+        mpm_options=ezsim.options.MPMOptions(
             lower_bound=(0.55, -0.1, -0.05),
             upper_bound=(0.75, 0.1, 0.3),
             grid_density=128,
@@ -39,22 +39,22 @@ def main():
 
     ########################## entities ##########################
     plane = scene.add_entity(
-        gs.morphs.Plane(),
+        ezsim.morphs.Plane(),
     )
     cube = scene.add_entity(
-        material=gs.materials.MPM.Elastic(),
-        morph=gs.morphs.Box(
+        material=ezsim.materials.MPM.Elastic(),
+        morph=ezsim.morphs.Box(
             size=(0.04, 0.04, 0.04),
             pos=(0.65, 0.0, 0.025),
             euler=(0, 0, 0),
         ),
-        surface=gs.surfaces.Default(
+        surface=ezsim.surfaces.Default(
             vis_mode="particle",
         ),
     )
     franka = scene.add_entity(
-        gs.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
-        material=gs.materials.Rigid(coup_friction=1.0),
+        ezsim.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
+        material=ezsim.materials.Rigid(coup_friction=1.0),
     )
 
     ########################## build ##########################

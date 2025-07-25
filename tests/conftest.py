@@ -89,13 +89,13 @@ def _get_gpu_indices():
 
 def pytest_xdist_auto_num_workers(config):
     import psutil
-    import genesis as gs
+    import ezsim
 
     # Get available memory (RAM & VRAM) and number of cores
     physical_core_count = psutil.cpu_count(logical=config.option.logical)
-    _, _, ram_memory, _ = gs.utils.get_device(gs.cpu)
-    _, _, vram_memory, backend = gs.utils.get_device(gs.gpu)
-    if backend == gs.cpu:
+    _, _, ram_memory, _ = ezsim.utils.get_device(ezsim.cpu)
+    _, _, vram_memory, backend = ezsim.utils.get_device(ezsim.gpu)
+    if backend == ezsim.cpu:
         # Ignore VRAM if no GPU is available
         vram_memory = float("inf")
 
@@ -157,11 +157,11 @@ def show_viewer(pytestconfig):
 
 @pytest.fixture(scope="session")
 def backend(pytestconfig):
-    import genesis as gs
+    import ezsim
 
-    backend = pytestconfig.getoption("--backend") or gs.cpu
+    backend = pytestconfig.getoption("--backend") or ezsim.cpu
     if isinstance(backend, str):
-        return getattr(gs.constants.backend, backend)
+        return getattr(ezsim.constants.backend, backend)
     return backend
 
 
@@ -173,9 +173,9 @@ def asset_tmp_path(tmp_path_factory):
 @pytest.fixture
 def tol():
     import numpy as np
-    import genesis as gs
+    import ezsim
 
-    return TOL_DOUBLE if gs.np_float == np.float64 else TOL_SINGLE
+    return TOL_DOUBLE if ezsim.np_float == np.float64 else TOL_SINGLE
 
 
 @pytest.fixture
@@ -270,13 +270,13 @@ def taichi_offline_cache(request):
 
 
 @pytest.fixture(scope="function", autouse=True)
-def initialize_genesis(request, backend, taichi_offline_cache):
+def initialize_ezsim(request, backend, taichi_offline_cache):
     import pyglet
-    import genesis as gs
-    from genesis.utils.misc import ALLOCATE_TENSOR_WARNING
+    import ezsim
+    from ezsim.utils.misc import ALLOCATE_TENSOR_WARNING
 
     logging_level = request.config.getoption("--log-cli-level")
-    if backend == gs.cpu:
+    if backend == ezsim.cpu:
         precision = "64"
         debug = True
     else:
@@ -287,28 +287,28 @@ def initialize_genesis(request, backend, taichi_offline_cache):
         if not taichi_offline_cache:
             os.environ["TI_OFFLINE_CACHE"] = "0"
 
-        gs.init(backend=backend, precision=precision, debug=debug, seed=0, logging_level=logging_level)
-        gs.logger.addFilter(lambda record: ALLOCATE_TENSOR_WARNING not in record.getMessage())
-        if backend != gs.cpu and gs.backend == gs.cpu:
-            gs.destroy()
+        ezsim.init(backend=backend, precision=precision, debug=debug, seed=0, logging_level=logging_level)
+        ezsim.logger.addFilter(lambda record: ALLOCATE_TENSOR_WARNING not in record.getMessage())
+        if backend != ezsim.cpu and ezsim.backend == ezsim.cpu:
+            ezsim.destroy()
             pytest.skip("No GPU available on this machine")
         yield
     finally:
         pyglet.app.exit()
-        gs.destroy()
+        ezsim.destroy()
         gc.collect()
 
 
 @pytest.fixture
 def mj_sim(
-    xml_path, gs_solver, gs_integrator, merge_fixed_links, multi_contact, adjacent_collision, dof_damping, gjk_collision
+    xml_path, ezsim_solver, ezsim_integrator, merge_fixed_links, multi_contact, adjacent_collision, dof_damping, gjk_collision
 ):
     from .utils import build_mujoco_sim
 
     return build_mujoco_sim(
         xml_path,
-        gs_solver,
-        gs_integrator,
+        ezsim_solver,
+        ezsim_integrator,
         merge_fixed_links,
         multi_contact,
         adjacent_collision,
@@ -318,10 +318,10 @@ def mj_sim(
 
 
 @pytest.fixture
-def gs_sim(
+def ezsim_sim(
     xml_path,
-    gs_solver,
-    gs_integrator,
+    ezsim_solver,
+    ezsim_integrator,
     merge_fixed_links,
     multi_contact,
     mujoco_compatibility,
@@ -330,12 +330,12 @@ def gs_sim(
     show_viewer,
     mj_sim,
 ):
-    from .utils import build_genesis_sim
+    from .utils import build_ezsim_sim
 
-    return build_genesis_sim(
+    return build_ezsim_sim(
         xml_path,
-        gs_solver,
-        gs_integrator,
+        ezsim_solver,
+        ezsim_integrator,
         merge_fixed_links,
         multi_contact,
         mujoco_compatibility,

@@ -1,17 +1,17 @@
-import genesis as gs
+import ezsim
 
-gs.init()
+ezsim.init()
 
-scene = gs.Scene(
+scene = ezsim.Scene(
     show_viewer=True,
-    viewer_options=gs.options.ViewerOptions(
+    viewer_options=ezsim.options.ViewerOptions(
         res=(1280, 960),
         camera_pos=(3.5, 0.0, 2.5),
         camera_lookat=(0.0, 0.0, 0.5),
         camera_fov=40,
         max_FPS=60,
     ),
-    vis_options=gs.options.VisOptions(
+    vis_options=ezsim.options.VisOptions(
         show_world_frame=True,
         world_frame_size=1.0,
         show_link_frame=False,
@@ -19,15 +19,15 @@ scene = gs.Scene(
         plane_reflection=True,
         ambient_light=(0.1, 0.1, 0.1),
     ),
-    # renderer=gs.renderers.RayTracer(),
-    renderer=gs.renderers.Rasterizer(),
+    # renderer=ezsim.renderers.RayTracer(),
+    renderer=ezsim.renderers.Rasterizer(),
 )
 
 plane = scene.add_entity(
-    gs.morphs.Plane(),
+    ezsim.morphs.Plane(),
 )
 franka = scene.add_entity(
-    gs.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
+    ezsim.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
 )
 
 cam = scene.add_camera(

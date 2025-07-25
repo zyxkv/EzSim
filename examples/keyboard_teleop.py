@@ -16,7 +16,7 @@ esc	- Quit
 import random
 import threading
 
-import genesis as gs
+import ezsim
 import numpy as np
 from pynput import keyboard
 from scipy.spatial.transform import Rotation as R
@@ -49,22 +49,22 @@ class KeyboardDevice:
 
 def build_scene():
     ########################## init ##########################
-    gs.init(seed=0, precision="32", logging_level="info", backend=gs.cpu)
+    ezsim.init(seed=0, precision="32", logging_level="info", backend=ezsim.cpu)
     np.set_printoptions(precision=7, suppress=True)
 
     ########################## create a scene ##########################
-    scene = gs.Scene(
-        sim_options=gs.options.SimOptions(
+    scene = ezsim.Scene(
+        sim_options=ezsim.options.SimOptions(
             substeps=4,
         ),
-        rigid_options=gs.options.RigidOptions(
+        rigid_options=ezsim.options.RigidOptions(
             enable_joint_limit=True,
             enable_collision=True,
             gravity=(0, 0, -9.8),
             box_box_detection=True,
             constraint_timeconst=0.02,
         ),
-        viewer_options=gs.options.ViewerOptions(
+        viewer_options=ezsim.options.ViewerOptions(
             camera_pos=(1.5, 0.0, 0.7),
             camera_lookat=(0.2, 0.0, 0.1),
             camera_fov=50,
@@ -77,32 +77,32 @@ def build_scene():
     ########################## entities ##########################
     entities = dict()
     entities["plane"] = scene.add_entity(
-        gs.morphs.Plane(),
+        ezsim.morphs.Plane(),
     )
 
     entities["robot"] = scene.add_entity(
-        material=gs.materials.Rigid(gravity_compensation=1),
-        morph=gs.morphs.MJCF(
+        material=ezsim.materials.Rigid(gravity_compensation=1),
+        morph=ezsim.morphs.MJCF(
             file="xml/franka_emika_panda/panda.xml",
             euler=(0, 0, 0),
         ),
     )
     entities["cube"] = scene.add_entity(
-        material=gs.materials.Rigid(rho=300),
-        morph=gs.morphs.Box(
+        material=ezsim.materials.Rigid(rho=300),
+        morph=ezsim.morphs.Box(
             pos=(0.5, 0.0, 0.07),
             size=(0.04, 0.04, 0.04),
         ),
-        surface=gs.surfaces.Default(color=(0.5, 1, 0.5)),
+        surface=ezsim.surfaces.Default(color=(0.5, 1, 0.5)),
     )
 
     entities["target"] = scene.add_entity(
-        gs.morphs.Mesh(
+        ezsim.morphs.Mesh(
             file="meshes/axis.obj",
             scale=0.15,
             collision=False,
         ),
-        surface=gs.surfaces.Default(color=(1, 0.5, 0.5, 1)),
+        surface=ezsim.surfaces.Default(color=(1, 0.5, 0.5, 1)),
     )
 
     ########################## build ##########################

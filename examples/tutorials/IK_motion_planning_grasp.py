@@ -1,18 +1,18 @@
-import genesis as gs
+import ezsim
 import numpy as np
 
 ########################## init ##########################
-gs.init(backend=gs.gpu)
+ezsim.init(backend=ezsim.gpu)
 
 ########################## create a scene ##########################
-scene = gs.Scene(
-    viewer_options=gs.options.ViewerOptions(
+scene = ezsim.Scene(
+    viewer_options=ezsim.options.ViewerOptions(
         camera_pos=(3, -1, 1.5),
         camera_lookat=(0.0, 0.0, 0.5),
         camera_fov=30,
         max_FPS=60,
     ),
-    sim_options=gs.options.SimOptions(
+    sim_options=ezsim.options.SimOptions(
         dt=0.01,
     ),
     show_viewer=True,
@@ -20,16 +20,16 @@ scene = gs.Scene(
 
 ########################## entities ##########################
 plane = scene.add_entity(
-    gs.morphs.Plane(),
+    ezsim.morphs.Plane(),
 )
 cube = scene.add_entity(
-    gs.morphs.Box(
+    ezsim.morphs.Box(
         size=(0.04, 0.04, 0.04),
         pos=(0.65, 0.0, 0.02),
     )
 )
 franka = scene.add_entity(
-    gs.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
+    ezsim.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
 )
 ########################## build ##########################
 scene.build()

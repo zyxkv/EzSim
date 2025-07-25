@@ -2,7 +2,7 @@ import argparse
 
 import numpy as np
 
-import genesis as gs
+import ezsim
 
 
 def main():
@@ -12,16 +12,16 @@ def main():
     args = parser.parse_args()
 
     ########################## init ##########################
-    gs.init(backend=gs.cpu if args.cpu else gs.gpu, logging_level="debug")
+    ezsim.init(backend=ezsim.cpu if args.cpu else ezsim.gpu, logging_level="debug")
 
     ########################## create a scene ##########################
 
-    scene = gs.Scene(
-        sim_options=gs.options.SimOptions(
+    scene = ezsim.Scene(
+        sim_options=ezsim.options.SimOptions(
             substeps=10,
             gravity=(0, 0, -9.8),
         ),
-        viewer_options=gs.options.ViewerOptions(
+        viewer_options=ezsim.options.ViewerOptions(
             camera_pos=(2, 2, 1.5),
             camera_lookat=(0, 0, 0.5),
             camera_up=(0, 0, 1),
@@ -30,18 +30,18 @@ def main():
     )
 
     ########################## materials ##########################
-    mat_elastic = gs.materials.PBD.Elastic()
+    mat_elastic = ezsim.materials.PBD.Elastic()
 
     ########################## entities ##########################
 
     bunny = scene.add_entity(
         material=mat_elastic,
-        morph=gs.morphs.Mesh(
+        morph=ezsim.morphs.Mesh(
             file="meshes/dragon/dragon.obj",
             scale=0.003,
             pos=(0, 0, 0.8),
         ),
-        surface=gs.surfaces.Default(
+        surface=ezsim.surfaces.Default(
             # vis_mode='recon',
         ),
     )

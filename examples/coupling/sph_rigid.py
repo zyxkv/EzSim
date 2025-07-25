@@ -1,6 +1,6 @@
 import argparse
 
-import genesis as gs
+import ezsim
 
 
 def main():
@@ -9,24 +9,24 @@ def main():
     args = parser.parse_args()
 
     ########################## init ##########################
-    gs.init(seed=0, precision="32", logging_level="debug")
+    ezsim.init(seed=0, precision="32", logging_level="debug")
 
     ########################## create a scene ##########################
 
-    scene = gs.Scene(
-        sim_options=gs.options.SimOptions(
+    scene = ezsim.Scene(
+        sim_options=ezsim.options.SimOptions(
             dt=1e-2,
             substeps=10,
         ),
-        sph_options=gs.options.SPHOptions(
+        sph_options=ezsim.options.SPHOptions(
             lower_bound=(0.0, -1.0, 0.0),
             upper_bound=(1.0, 1.0, 2.4),
         ),
-        vis_options=gs.options.VisOptions(
+        vis_options=ezsim.options.VisOptions(
             visualize_sph_boundary=True,
             rendered_envs_idx=[0],
         ),
-        viewer_options=gs.options.ViewerOptions(
+        viewer_options=ezsim.options.ViewerOptions(
             camera_pos=(3.5, -3.15, 2.42),
             camera_lookat=(0.5, 0.0, 0.5),
             camera_fov=40,
@@ -36,24 +36,24 @@ def main():
     )
 
     ########################## entities ##########################
-    frictionless_rigid = gs.materials.Rigid(needs_coup=True, coup_friction=0.0)
+    frictionless_rigid = ezsim.materials.Rigid(needs_coup=True, coup_friction=0.0)
     plane = scene.add_entity(
-        morph=gs.morphs.Plane(),
+        morph=ezsim.morphs.Plane(),
     )
     water = scene.add_entity(
-        material=gs.materials.SPH.Liquid(mu=0.01, sampler="regular"),
-        morph=gs.morphs.Box(
+        material=ezsim.materials.SPH.Liquid(mu=0.01, sampler="regular"),
+        morph=ezsim.morphs.Box(
             pos=(0.5, 0.0, 0.6),
             size=(0.9, 1.6, 1.2),
         ),
-        surface=gs.surfaces.Default(
+        surface=ezsim.surfaces.Default(
             color=(0.5, 0.7, 0.9, 1.0),
         ),
     )
 
     cube = scene.add_entity(
         material=frictionless_rigid,
-        morph=gs.morphs.Box(
+        morph=ezsim.morphs.Box(
             pos=(0.5, 0.0, 2.4),
             size=(0.2, 0.2, 0.2),
             euler=(30, 40, 0),

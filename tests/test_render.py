@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 import torch
 
-import genesis as gs
+import ezsim
 
 from .utils import assert_allclose, assert_array_equal
 
@@ -15,14 +15,14 @@ from .utils import assert_allclose, assert_array_equal
 @pytest.mark.parametrize("particle_mode", ["visual", "particle"])
 def test_segmentation(segmentation_level, particle_mode):
     """Test segmentation rendering."""
-    scene = gs.Scene(
-        fem_options=gs.options.FEMOptions(use_implicit_solver=True),
-        vis_options=gs.options.VisOptions(segmentation_level=segmentation_level),
+    scene = ezsim.Scene(
+        fem_options=ezsim.options.FEMOptions(use_implicit_solver=True),
+        vis_options=ezsim.options.VisOptions(segmentation_level=segmentation_level),
         show_viewer=False,
     )
 
     robot = scene.add_entity(
-        morph=gs.morphs.URDF(
+        morph=ezsim.morphs.URDF(
             file="urdf/simple/two_link_arm.urdf",
             pos=(-1.0, -1.0, 0.5),
             euler=(0, 0, 90),
@@ -32,12 +32,12 @@ def test_segmentation(segmentation_level, particle_mode):
     # We don't test "recon" for vis_mode because it is hard to install.
     sph_mode = "particle" if particle_mode == "visual" else particle_mode
     materials = [
-        (gs.materials.Rigid(), "visual"),
-        (gs.materials.Tool(), "visual"),
-        (gs.materials.FEM.Elastic(), "visual"),
-        (gs.materials.MPM.Elastic(), particle_mode),
-        (gs.materials.PBD.Cloth(), particle_mode),
-        (gs.materials.SPH.Liquid(), sph_mode),
+        (ezsim.materials.Rigid(), "visual"),
+        (ezsim.materials.Tool(), "visual"),
+        (ezsim.materials.FEM.Elastic(), "visual"),
+        (ezsim.materials.MPM.Elastic(), particle_mode),
+        (ezsim.materials.PBD.Cloth(), particle_mode),
+        (ezsim.materials.SPH.Liquid(), sph_mode),
         # TODO: Add avatar. Currently avatar solver is buggy.
     ]
     ducks = []
@@ -49,12 +49,12 @@ def test_segmentation(segmentation_level, particle_mode):
         ducks.append(
             scene.add_entity(
                 material=material,
-                morph=gs.morphs.Mesh(
+                morph=ezsim.morphs.Mesh(
                     file="meshes/duck.obj",
                     scale=0.1,
                     pos=(col_idx * spacing, row_idx * spacing, 0.5),
                 ),
-                surface=gs.surfaces.Default(
+                surface=ezsim.surfaces.Default(
                     color=np.random.rand(3),
                     vis_mode=vis_mode,
                 ),
@@ -87,8 +87,8 @@ def test_segmentation(segmentation_level, particle_mode):
 @pytest.mark.required
 @pytest.mark.flaky(reruns=3, condition=(sys.platform == "darwin"))
 def test_batched_offscreen_rendering(show_viewer, tol):
-    scene = gs.Scene(
-        vis_options=gs.options.VisOptions(
+    scene = ezsim.Scene(
+        vis_options=ezsim.options.VisOptions(
             # rendered_envs_idx=(0, 1, 2),
             env_separate_rigid=False,
         ),
@@ -96,92 +96,92 @@ def test_batched_offscreen_rendering(show_viewer, tol):
         show_FPS=False,
     )
     plane = scene.add_entity(
-        morph=gs.morphs.Plane(),
-        surface=gs.surfaces.Aluminium(
+        morph=ezsim.morphs.Plane(),
+        surface=ezsim.surfaces.Aluminium(
             ior=10.0,
         ),
     )
     scene.add_entity(
-        morph=gs.morphs.Mesh(
+        morph=ezsim.morphs.Mesh(
             file="meshes/sphere.obj",
             scale=0.1,
             pos=(-0.2, -0.8, 0.2),
             fixed=True,
         ),
-        surface=gs.surfaces.Rough(
-            diffuse_texture=gs.textures.ColorTexture(
+        surface=ezsim.surfaces.Rough(
+            diffuse_texture=ezsim.textures.ColorTexture(
                 color=(1.0, 0.5, 0.5),
             ),
         ),
     )
     scene.add_entity(
-        morph=gs.morphs.Mesh(
+        morph=ezsim.morphs.Mesh(
             file="meshes/sphere.obj",
             scale=0.1,
             pos=(-0.2, -0.5, 0.2),
             fixed=True,
         ),
-        surface=gs.surfaces.Rough(
+        surface=ezsim.surfaces.Rough(
             color=(1.0, 1.0, 1.0),
         ),
     )
     scene.add_entity(
-        morph=gs.morphs.Mesh(
+        morph=ezsim.morphs.Mesh(
             file="meshes/sphere.obj",
             scale=0.1,
             pos=(-0.2, -0.2, 0.2),
             fixed=True,
         ),
-        surface=gs.surfaces.Smooth(
+        surface=ezsim.surfaces.Smooth(
             color=(0.6, 0.8, 1.0),
         ),
     )
     scene.add_entity(
-        morph=gs.morphs.Mesh(
+        morph=ezsim.morphs.Mesh(
             file="meshes/sphere.obj",
             scale=0.1,
             pos=(-0.2, 0.2, 0.2),
             fixed=True,
         ),
-        surface=gs.surfaces.Iron(
+        surface=ezsim.surfaces.Iron(
             color=(1.0, 1.0, 1.0),
         ),
     )
     scene.add_entity(
-        morph=gs.morphs.Mesh(
+        morph=ezsim.morphs.Mesh(
             file="meshes/sphere.obj",
             scale=0.1,
             pos=(-0.2, 0.5, 0.2),
             fixed=True,
         ),
-        surface=gs.surfaces.Gold(
+        surface=ezsim.surfaces.Gold(
             color=(1.0, 1.0, 1.0),
         ),
     )
     scene.add_entity(
-        morph=gs.morphs.Mesh(
+        morph=ezsim.morphs.Mesh(
             file="meshes/sphere.obj",
             scale=0.1,
             pos=(-0.2, 0.8, 0.2),
             fixed=True,
         ),
-        surface=gs.surfaces.Glass(
+        surface=ezsim.surfaces.Glass(
             color=(1.0, 1.0, 1.0),
         ),
     )
     scene.add_entity(
-        morph=gs.morphs.Mesh(
+        morph=ezsim.morphs.Mesh(
             file="meshes/sphere.obj",
             scale=0.1,
             pos=(0.2, -0.8, 0.2),
             fixed=True,
         ),
-        surface=gs.surfaces.Smooth(
+        surface=ezsim.surfaces.Smooth(
             color=(1.0, 1.0, 1.0, 0.5),
         ),
     )
     scene.add_entity(
-        morph=gs.morphs.Mesh(
+        morph=ezsim.morphs.Mesh(
             file="meshes/wooden_sphere_OBJ/wooden_sphere.obj",
             scale=0.025,
             pos=(0.2, -0.5, 0.2),
@@ -189,20 +189,20 @@ def test_batched_offscreen_rendering(show_viewer, tol):
         ),
     )
     scene.add_entity(
-        morph=gs.morphs.Mesh(
+        morph=ezsim.morphs.Mesh(
             file="meshes/wooden_sphere_OBJ/wooden_sphere.obj",
             scale=0.025,
             pos=(0.2, -0.2, 0.2),
             fixed=True,
         ),
-        surface=gs.surfaces.Rough(
-            diffuse_texture=gs.textures.ImageTexture(
+        surface=ezsim.surfaces.Rough(
+            diffuse_texture=ezsim.textures.ImageTexture(
                 image_path="textures/checker.png",
             )
         ),
     )
     robot = scene.add_entity(
-        gs.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
+        ezsim.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
     )
     cam = scene.add_camera(
         pos=(0.9, 0.0, 0.4),
@@ -241,38 +241,38 @@ def test_batched_offscreen_rendering(show_viewer, tol):
 
 @pytest.mark.required
 def test_batched_mounted_camera_rendering(show_viewer, tol):
-    scene = gs.Scene(
-        sim_options=gs.options.SimOptions(
+    scene = ezsim.Scene(
+        sim_options=ezsim.options.SimOptions(
             dt=0.2,
             substeps=10,
         ),
-        vis_options=gs.options.VisOptions(
+        vis_options=ezsim.options.VisOptions(
             env_separate_rigid=False,
         ),
         show_viewer=show_viewer,
         show_FPS=False,
     )
     plane = scene.add_entity(
-        morph=gs.morphs.Plane(),
-        surface=gs.surfaces.Aluminium(
+        morph=ezsim.morphs.Plane(),
+        surface=ezsim.surfaces.Aluminium(
             ior=10.0,
         ),
     )
     scene.add_entity(
-        morph=gs.morphs.Mesh(
+        morph=ezsim.morphs.Mesh(
             file="meshes/sphere.obj",
             scale=0.1,
             pos=(-0.2, -0.5, 0.2),
             fixed=True,
         ),
-        surface=gs.surfaces.Rough(
-            diffuse_texture=gs.textures.ColorTexture(
+        surface=ezsim.surfaces.Rough(
+            diffuse_texture=ezsim.textures.ColorTexture(
                 color=(1.0, 0.5, 0.5),
             ),
         ),
     )
     robot = scene.add_entity(
-        gs.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
+        ezsim.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
     )
     n_envs = 3
     env_spacing = (2.0, 2.0)

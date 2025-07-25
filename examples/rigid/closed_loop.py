@@ -1,20 +1,20 @@
-import genesis as gs
+import ezsim
 import argparse
 import time
 
 
 def main_equality_connect():
-    gs.init(backend=gs.cpu)
+    ezsim.init(backend=ezsim.cpu)
 
-    scene = gs.Scene(
-        viewer_options=gs.options.ViewerOptions(
+    scene = ezsim.Scene(
+        viewer_options=ezsim.options.ViewerOptions(
             camera_pos=(10, 0, 10),
             camera_lookat=(0.0, 0.0, 3),
             camera_fov=60,
         ),
     )
     franka = scene.add_entity(
-        gs.morphs.MJCF(
+        ezsim.morphs.MJCF(
             file="xml/four_bar_linkage.xml",
         ),
     )
@@ -28,13 +28,13 @@ def main_equality_weld():
     parser.add_argument("-v", "--vis", action="store_true", default=False)
     args = parser.parse_args()
     ########################## init ##########################
-    gs.init(backend=gs.cpu)
-    scene = gs.Scene(
+    ezsim.init(backend=ezsim.cpu)
+    scene = ezsim.Scene(
         show_viewer=args.vis,
     )
     ########################## entities ##########################
     robot1 = scene.add_entity(
-        gs.morphs.MJCF(file="xml/four_bar_linkage_weld.xml"),
+        ezsim.morphs.MJCF(file="xml/four_bar_linkage_weld.xml"),
     )
 
     ########################## build ##########################

@@ -1,6 +1,6 @@
 import argparse
 
-import genesis as gs
+import ezsim
 
 
 def main():
@@ -15,34 +15,34 @@ def main():
     args = parser.parse_args()
 
     ########################## init ##########################
-    gs.init(backend=gs.cpu if args.cpu else gs.gpu)
+    ezsim.init(backend=ezsim.cpu if args.cpu else ezsim.gpu)
 
     ########################## create a scene ##########################
-    scene = gs.Scene(
-        vis_options=gs.options.VisOptions(
+    scene = ezsim.Scene(
+        vis_options=ezsim.options.VisOptions(
             plane_reflection=False,
             rendered_envs_idx=list(range(args.num_env)),
             env_separate_rigid=args.sep,
             show_world_frame=False,
             show_link_frame=False,
         ),
-        viewer_options=gs.options.ViewerOptions(
+        viewer_options=ezsim.options.ViewerOptions(
             camera_pos=(3.5, 0.0, 2.5),
             camera_lookat=(0.0, 0.0, 0.5),
             camera_fov=40,
         ),
         show_viewer=args.vis,
-        rigid_options=gs.options.RigidOptions(
-            # constraint_solver=gs.constraint_solver.Newton,
+        rigid_options=ezsim.options.RigidOptions(
+            # constraint_solver=ezsim.constraint_solver.Newton,
         ),
     )
 
     ########################## entities ##########################
     plane = scene.add_entity(
-        gs.morphs.Plane(),
+        ezsim.morphs.Plane(),
     )
     franka = scene.add_entity(
-        gs.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
+        ezsim.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
         visualize_contact=True,
     )
 

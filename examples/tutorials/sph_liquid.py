@@ -1,21 +1,21 @@
-import genesis as gs
+import ezsim
 
 ########################## init ##########################
-gs.init()
+ezsim.init()
 
 ########################## create a scene ##########################
 
-scene = gs.Scene(
-    sim_options=gs.options.SimOptions(
+scene = ezsim.Scene(
+    sim_options=ezsim.options.SimOptions(
         dt=4e-3,
         substeps=10,
     ),
-    sph_options=gs.options.SPHOptions(
+    sph_options=ezsim.options.SPHOptions(
         lower_bound=(-0.5, -0.5, 0.0),
         upper_bound=(0.5, 0.5, 1),
         particle_size=0.01,
     ),
-    vis_options=gs.options.VisOptions(
+    vis_options=ezsim.options.VisOptions(
         visualize_sph_boundary=True,
     ),
     show_viewer=True,
@@ -23,18 +23,18 @@ scene = gs.Scene(
 
 ########################## entities ##########################
 plane = scene.add_entity(
-    morph=gs.morphs.Plane(),
+    morph=ezsim.morphs.Plane(),
 )
 
 liquid = scene.add_entity(
     # viscous liquid
-    # material=gs.materials.SPH.Liquid(mu=0.02, gamma=0.02),
-    material=gs.materials.SPH.Liquid(),
-    morph=gs.morphs.Box(
+    # material=ezsim.materials.SPH.Liquid(mu=0.02, gamma=0.02),
+    material=ezsim.materials.SPH.Liquid(),
+    morph=ezsim.morphs.Box(
         pos=(0.0, 0.0, 0.65),
         size=(0.4, 0.4, 0.4),
     ),
-    surface=gs.surfaces.Default(
+    surface=ezsim.surfaces.Default(
         color=(0.4, 0.8, 1.0),
         vis_mode="particle",
     ),

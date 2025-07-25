@@ -1,8 +1,8 @@
 import argparse
 import numpy as np
-import genesis as gs
+import ezsim
 
-from genesis.engine.solvers.rigid.rigid_solver_decomp import RigidSolver
+from ezsim.engine.solvers.rigid.rigid_solver_decomp import RigidSolver
 
 
 def main():
@@ -11,17 +11,17 @@ def main():
     args = parser.parse_args()
 
     ########################## init ##########################
-    gs.init(backend=gs.gpu)
+    ezsim.init(backend=ezsim.gpu)
 
     ########################## create a scene ##########################
-    scene = gs.Scene(
-        viewer_options=gs.options.ViewerOptions(
+    scene = ezsim.Scene(
+        viewer_options=ezsim.options.ViewerOptions(
             camera_pos=(0, -3.5, 2.5),
             camera_lookat=(0.0, 0.0, 1.0),
             camera_fov=40,
             max_FPS=60,
         ),
-        sim_options=gs.options.SimOptions(
+        sim_options=ezsim.options.SimOptions(
             dt=0.01,
         ),
         show_viewer=args.vis,
@@ -30,10 +30,10 @@ def main():
 
     ########################## entities ##########################
     plane = scene.add_entity(
-        gs.morphs.Plane(),
+        ezsim.morphs.Plane(),
     )
     cube = scene.add_entity(
-        gs.morphs.Box(
+        ezsim.morphs.Box(
             pos=(0, 0, 1.0),
             size=(0.2, 0.2, 0.2),
         ),

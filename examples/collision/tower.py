@@ -1,5 +1,5 @@
 import numpy as np
-import genesis as gs
+import ezsim
 import argparse
 
 object_type = "cylinder"
@@ -14,19 +14,19 @@ parser.add_argument(
 args = parser.parse_args()
 object_type = args.object
 
-gs.init(backend=gs.cpu, precision="32")
+ezsim.init(backend=ezsim.cpu, precision="32")
 
-scene = gs.Scene(
-    sim_options=gs.options.SimOptions(
+scene = ezsim.Scene(
+    sim_options=ezsim.options.SimOptions(
         dt=0.005,
     ),
-    rigid_options=gs.options.RigidOptions(
+    rigid_options=ezsim.options.RigidOptions(
         box_box_detection=False,
         max_collision_pairs=2000,
         use_gjk_collision=True,
         enable_mujoco_compatibility=False,
     ),
-    viewer_options=gs.options.ViewerOptions(
+    viewer_options=ezsim.options.ViewerOptions(
         camera_pos=(20, -20, 20),
         camera_lookat=(0.0, 0.0, 5.0),
         camera_fov=30,
@@ -35,7 +35,7 @@ scene = gs.Scene(
     show_viewer=True,
 )
 
-plane = scene.add_entity(gs.morphs.Plane(pos=(0, 0, 0)))
+plane = scene.add_entity(ezsim.morphs.Plane(pos=(0, 0, 0)))
 
 # create pyramid of boxes
 box_width = 0.25
@@ -56,17 +56,17 @@ for i in range(num_stacks):
         box_pos_1 = (0, +0.4 * box_length, i * (height_offset + box_size[2]) + 0.5 * box_size[2])
 
     scene.add_entity(
-        gs.morphs.Box(size=box_size, pos=box_pos_0),
+        ezsim.morphs.Box(size=box_size, pos=box_pos_0),
     )
     scene.add_entity(
-        gs.morphs.Box(size=box_size, pos=box_pos_1),
+        ezsim.morphs.Box(size=box_size, pos=box_pos_1),
     )
 
 # Drop a huge mesh
 if object_type == "duck":
     duck_scale = 1.0
     duck = scene.add_entity(
-        morph=gs.morphs.Mesh(
+        morph=ezsim.morphs.Mesh(
             file="meshes/duck.obj",
             scale=duck_scale,
             pos=(0, 0, num_stacks * (height_offset + box_height) + 10 * duck_scale),
@@ -75,7 +75,7 @@ if object_type == "duck":
 elif object_type == "sphere":
     sphere_radius = 2.0
     scene.add_entity(
-        morph=gs.morphs.Sphere(
+        morph=ezsim.morphs.Sphere(
             radius=sphere_radius, pos=(0.0, 0.0, num_stacks * (height_offset + box_height) + 5 * sphere_radius)
         ),
     )
@@ -83,7 +83,7 @@ elif object_type == "cylinder":
     cylinder_radius = 2.0
     cylinder_height = 1.0
     scene.add_entity(
-        morph=gs.morphs.Cylinder(
+        morph=ezsim.morphs.Cylinder(
             radius=cylinder_radius,
             height=cylinder_height,
             pos=(0.0, 0.0, num_stacks * (height_offset + box_height) + 5 * cylinder_height),

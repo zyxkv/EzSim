@@ -2,7 +2,7 @@ import argparse
 
 import numpy as np
 
-import genesis as gs
+import ezsim
 
 config = {
     "ur5e": {"mjcf_file": "xml/universal_robots_ur5e/ur5e.xml", "end_effector_link": "ee_virtual_link"},
@@ -21,19 +21,19 @@ def main():
     args = parser.parse_args()
 
     ########################## init ##########################
-    backend = gs.cpu if args.cpu else gs.gpu
-    gs.init(backend=backend)
+    backend = ezsim.cpu if args.cpu else ezsim.gpu
+    ezsim.init(backend=backend)
 
     ########################## create a scene ##########################
-    scene = gs.Scene(
-        viewer_options=gs.options.ViewerOptions(
+    scene = ezsim.Scene(
+        viewer_options=ezsim.options.ViewerOptions(
             camera_pos=(0.0, -2, 1.5),
             camera_lookat=(0.0, 0.0, 0.5),
             camera_fov=40,
             max_FPS=200,
         ),
         show_viewer=args.vis,
-        rigid_options=gs.options.RigidOptions(
+        rigid_options=ezsim.options.RigidOptions(
             enable_joint_limit=False,
             enable_collision=False,
             gravity=(0, 0, -0),
@@ -44,23 +44,23 @@ def main():
     ########################## entities ##########################
 
     plane = scene.add_entity(
-        gs.morphs.Plane(),
+        ezsim.morphs.Plane(),
     )
 
     robot_config = config[args.robot]
     mjcf_file = robot_config["mjcf_file"]
     robot = scene.add_entity(
-        gs.morphs.MJCF(file=mjcf_file),
+        ezsim.morphs.MJCF(file=mjcf_file),
     )
 
     print("links=", robot.links)
 
     target_entity = scene.add_entity(
-        gs.morphs.Mesh(
+        ezsim.morphs.Mesh(
             file="meshes/axis.obj",
             scale=0.10,
         ),
-        surface=gs.surfaces.Default(color=(1, 0.5, 0.5, 1)),
+        surface=ezsim.surfaces.Default(color=(1, 0.5, 0.5, 1)),
     )
     ########################## build ##########################
     scene.build()
@@ -84,8 +84,8 @@ def main():
 
         # Orientation error.
         ee_quat = ee_link.get_quat().cpu().numpy()
-        error_quat = gs.transform_quat_by_quat(gs.inv_quat(ee_quat), target_quat)
-        error_rotvec = gs.quat_to_rotvec(error_quat)
+        error_quat = ezsim.transform_quat_by_quat(ezsim.inv_quat(ee_quat), target_quat)
+        error_rotvec = ezsim.quat_to_rotvec(error_quat)
 
         error = np.concatenate([error_pos, error_rotvec])
 

@@ -1,4 +1,4 @@
-import genesis as gs
+import ezsim
 import numpy as np
 import argparse
 
@@ -11,37 +11,37 @@ def main():
     args = parser.parse_args()
 
     ########################## init ##########################
-    gs.init(backend=gs.cpu if args.cpu else gs.gpu)
+    ezsim.init(backend=ezsim.cpu if args.cpu else ezsim.gpu)
 
     ########################## create a scene ##########################
-    scene = gs.Scene(
-        sim_options=gs.options.SimOptions(
+    scene = ezsim.Scene(
+        sim_options=ezsim.options.SimOptions(
             dt=0.01,
         ),
-        rigid_options=gs.options.RigidOptions(
+        rigid_options=ezsim.options.RigidOptions(
             box_box_detection=True,
         ),
         show_viewer=args.vis,
     )
     plane = scene.add_entity(
-        gs.morphs.Plane(),
+        ezsim.morphs.Plane(),
     )
     cube = scene.add_entity(
-        gs.morphs.Box(
+        ezsim.morphs.Box(
             size=(0.04, 0.04, 0.04),
             pos=(0.65, 0.0, 0.02),
         ),
-        surface=gs.surfaces.Plastic(color=(1, 0, 0)),
+        surface=ezsim.surfaces.Plastic(color=(1, 0, 0)),
     )
     cube_2 = scene.add_entity(
-        gs.morphs.Box(
+        ezsim.morphs.Box(
             size=(0.04, 0.04, 0.04),
             pos=(0.4, 0.2, 0.02),
         ),
-        surface=gs.surfaces.Plastic(color=(0, 1, 0)),
+        surface=ezsim.surfaces.Plastic(color=(0, 1, 0)),
     )
     franka = scene.add_entity(
-        gs.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
+        ezsim.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
         vis_mode="collision",
     )
     scene.build()

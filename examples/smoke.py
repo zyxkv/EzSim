@@ -5,7 +5,7 @@ import numpy as np
 import taichi as ti
 import cv2
 
-import genesis as gs
+import ezsim
 
 
 @ti.data_oriented
@@ -45,13 +45,13 @@ class Jet(object):
     def get_factor(self, i: int, j: int, k: int, dx: float, t: float):
         rel_pos = self.get_pos(t)
         tan_dir = self.get_tan_dir(t)
-        ijk = ti.Vector([i, j, k], dt=gs.ti_float) * dx
+        ijk = ti.Vector([i, j, k], dt=ezsim.ti_float) * dx
         dist = 2 * self.jet_radius
         for q in ti.static(range(self.num_sub_jets)):
             jet_pos = ti.Vector([0.0, self.sub_orbit_radius, 0.0])
             rot_mat = ti.math.rot_by_axis(tan_dir, self.sub_orbit_radian_delta * q + self.sub_orbit_tau * t)[:3, :3]
             jet_pos = (rot_mat @ jet_pos) + self.world_center + rel_pos
-            dist_q = (ijk - jet_pos).norm(gs.EPS)
+            dist_q = (ijk - jet_pos).norm(ezsim.EPS)
             if dist_q < dist:
                 dist = dist_q
         factor = 0.0
@@ -62,7 +62,7 @@ class Jet(object):
     @ti.func
     def get_inward_dir(self, t: float):
         neg_pos = -self.get_pos(t)
-        return neg_pos.normalized(gs.EPS)
+        return neg_pos.normalized(ezsim.EPS)
 
     @ti.func
     def get_tan_dir(self, t: float):
@@ -74,17 +74,17 @@ class Jet(object):
 def main():
 
     ########################## init ##########################
-    gs.init(seed=0, precision="32", logging_level="debug")
+    ezsim.init(seed=0, precision="32", logging_level="debug")
 
     video_path = Path(__file__).parent / "video"
     video_path.mkdir(exist_ok=True, parents=True)
 
     res = 384
-    scene = gs.Scene(
-        sim_options=gs.options.SimOptions(
+    scene = ezsim.Scene(
+        sim_options=ezsim.options.SimOptions(
             dt=1e-2,
         ),
-        sf_options=gs.options.SFOptions(
+        sf_options=ezsim.options.SFOptions(
             res=res,
             solver_iters=200,
             decay=0.025,

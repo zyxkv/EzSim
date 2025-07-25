@@ -45,8 +45,8 @@ RUN wget https://github.com/Kitware/CMake/releases/download/v3.31.0-rc2/cmake-3.
 
 # Build LuisaRender
 WORKDIR /workspace
-RUN git clone https://github.com/Genesis-Embodied-AI/Genesis.git && \
-    cd Genesis && \
+RUN git clone https://github.com/zyxkv/EzSim.git && \
+    cd EzSim && \
     git submodule update --init --recursive
 COPY build_luisa.sh /workspace/build_luisa.sh
 RUN chmod +x ./build_luisa.sh && ./build_luisa.sh ${PYTHON_VERSION}
@@ -85,21 +85,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /workspace
 
-# --------------------------- Genesis ----------------------------
+# --------------------------- EzSim ---------------------------
 RUN pip install --no-cache-dir open3d
-RUN git clone https://github.com/Genesis-Embodied-AI/Genesis.git && \
-    cd Genesis && \
+RUN git clone https://github.com/zyxkv/EzSim.git && \
+    cd EzSim && \
     pip install . && \
     pip install --no-cache-dir PyOpenGL==3.1.5
 
 # -------------------- Surface Reconstruction --------------------
 # Set the LD_LIBRARY_PATH directly in the environment
-COPY --from=builder /workspace/Genesis/genesis/ext/ParticleMesher/ParticleMesherPy /opt/conda/lib/python3.11/site-packages/genesis/ext/ParticleMesher/ParticleMesherPy
-ENV LD_LIBRARY_PATH=/opt/conda/lib/python3.11/site-packages/genesis/ext/ParticleMesher/ParticleMesherPy:$LD_LIBRARY_PATH
+COPY --from=builder /workspace/EzSim/ezsim/ext/ParticleMesher/ParticleMesherPy /opt/conda/lib/python3.11/site-packages/ezsim/ext/ParticleMesher/ParticleMesherPy
+ENV LD_LIBRARY_PATH=/opt/conda/lib/python3.11/site-packages/ezsim/ext/ParticleMesher/ParticleMesherPy:$LD_LIBRARY_PATH
 
 # --------------------- Ray Tracing Renderer ---------------------
 # Copy LuisaRender build artifacts from the builder stage
-COPY --from=builder /workspace/Genesis/genesis/ext/LuisaRender/build/bin /opt/conda/lib/python3.11/site-packages/genesis/ext/LuisaRender/build/bin
+COPY --from=builder /workspace/EzSim/ezsim/ext/LuisaRender/build/bin /opt/conda/lib/python3.11/site-packages/ezsim/ext/LuisaRender/build/bin
 # fix GLIBCXX_3.4.30 not found
 RUN cd /opt/conda/lib && \
     mv libstdc++.so.6 libstdc++.so.6.old && \

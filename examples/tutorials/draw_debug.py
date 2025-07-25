@@ -1,26 +1,26 @@
 import time
 import numpy as np
-import genesis as gs
+import ezsim
 
 
 def main():
-    gs.init(backend=gs.cpu)
+    ezsim.init(backend=ezsim.cpu)
 
     # Scene setup
-    viewer_options = gs.options.ViewerOptions(
+    viewer_options = ezsim.options.ViewerOptions(
         camera_pos=(5.0, -5.0, 2.5),
         camera_lookat=(0.0, 0.0, 0.0),
         camera_fov=40,
         max_FPS=200,
     )
 
-    scene = gs.Scene(
+    scene = ezsim.Scene(
         viewer_options=viewer_options,
         show_viewer=True,
     )
 
     # Add a plane for reference
-    scene.add_entity(morph=gs.morphs.Plane())
+    scene.add_entity(morph=ezsim.morphs.Plane())
     scene.build()
 
     # Create debug objects

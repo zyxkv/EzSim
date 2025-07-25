@@ -2,8 +2,8 @@ import torch
 import numpy as np
 import pytest
 
-import genesis as gs
-from genesis.engine.bvh import LBVH, AABB
+import ezsim
+from ezsim.engine.bvh import LBVH, AABB
 
 from .utils import assert_allclose
 
@@ -70,7 +70,7 @@ def test_expand_bits():
         ), f"Expected {str_expanded_x}, got {''.join(f'00{bit}' for bit in str_x)}"
 
 
-@pytest.mark.parametrize("backend", [gs.cpu, gs.gpu])
+@pytest.mark.parametrize("backend", [ezsim.cpu, ezsim.gpu])
 def test_build_tree(lbvh):
     nodes = lbvh.nodes.to_numpy()
     n_aabbs = lbvh.n_aabbs
@@ -117,7 +117,7 @@ def test_build_tree(lbvh):
                 assert_allclose(parent_max, parent_max_expected, atol=1e-6, rtol=1e-5)
 
 
-@pytest.mark.parametrize("backend", [gs.cpu, gs.gpu])
+@pytest.mark.parametrize("backend", [ezsim.cpu, ezsim.gpu])
 def test_query(lbvh):
     aabbs = lbvh.aabbs
 

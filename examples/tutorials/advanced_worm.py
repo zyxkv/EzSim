@@ -1,27 +1,27 @@
 import numpy as np
-import genesis as gs
+import ezsim
 
 
 ########################## init ##########################
-gs.init(seed=0, precision="32", logging_level="debug")
+ezsim.init(seed=0, precision="32", logging_level="debug")
 
 ########################## create a scene ##########################
-scene = gs.Scene(
-    sim_options=gs.options.SimOptions(
+scene = ezsim.Scene(
+    sim_options=ezsim.options.SimOptions(
         substeps=10,
         gravity=(0, 0, -9.8),
     ),
-    viewer_options=gs.options.ViewerOptions(
+    viewer_options=ezsim.options.ViewerOptions(
         camera_pos=(1.5, 0, 0.8),
         camera_lookat=(0.0, 0.0, 0.0),
         camera_fov=40,
     ),
-    mpm_options=gs.options.MPMOptions(
+    mpm_options=ezsim.options.MPMOptions(
         dt=5e-4,
         lower_bound=(-1.0, -1.0, -0.2),
         upper_bound=(1.0, 1.0, 1.0),
     ),
-    vis_options=gs.options.VisOptions(
+    vis_options=ezsim.options.VisOptions(
         show_world_frame=True,
         visualize_mpm_boundary=True,
     ),
@@ -29,28 +29,28 @@ scene = gs.Scene(
 
 ########################## entities ##########################
 scene.add_entity(
-    morph=gs.morphs.Plane(),
-    material=gs.materials.Rigid(
+    morph=ezsim.morphs.Plane(),
+    material=ezsim.materials.Rigid(
         coup_friction=5.0,
     ),
 )
 
 worm = scene.add_entity(
-    morph=gs.morphs.Mesh(
+    morph=ezsim.morphs.Mesh(
         file="meshes/worm/worm.obj",
         pos=(0.3, 0.3, 0.001),
         scale=0.1,
         euler=(90, 0, 0),
     ),
-    material=gs.materials.MPM.Muscle(
+    material=ezsim.materials.MPM.Muscle(
         E=5e5,
         nu=0.45,
         rho=10000.0,
         model="neohooken",
         n_groups=4,
     ),
-    surface=gs.surfaces.Default(
-        diffuse_texture=gs.textures.ImageTexture(
+    surface=ezsim.surfaces.Default(
+        diffuse_texture=ezsim.textures.ImageTexture(
             image_path="meshes/worm/bdy_Base_Color.png",
         ),
     ),
@@ -62,10 +62,10 @@ scene.build(n_envs=3)
 
 ########################## set muscle ##########################
 def set_muscle_by_pos(robot):
-    if isinstance(robot.material, gs.materials.MPM.Muscle):
+    if isinstance(robot.material, ezsim.materials.MPM.Muscle):
         pos = robot.get_state().pos[0]
         n_units = robot.n_particles
-    elif isinstance(robot.material, gs.materials.FEM.Muscle):
+    elif isinstance(robot.material, ezsim.materials.FEM.Muscle):
         pos = robot.get_state().pos[0, robot.get_el2v()].mean(1)
         n_units = robot.n_elements
     else:

@@ -5,11 +5,11 @@ import torch
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-import genesis as gs
-import genesis.utils.geom as gu
-from genesis.utils.misc import tensor_to_array
-from genesis.utils import warnings as warnings_mod
-from genesis.utils.warnings import warn_once
+import ezsim
+import ezsim.utils.geom as gu
+from ezsim.utils.misc import tensor_to_array
+from ezsim.utils import warnings as warnings_mod
+from ezsim.utils.warnings import warn_once
 
 from .utils import (
     assert_allclose,
@@ -127,11 +127,11 @@ def test_utils_geom_taichi_vs_tensor_consistency(batch_shape):
         shape_args = (*shapes_in, *shapes_out)
         np_args, tc_args, ti_args, ti_outs = [], [], [], []
         for i in range(len(shape_args)):
-            np_arg = np.random.rand(*batch_shape, *shape_args[i]).astype(gs.np_float)
+            np_arg = np.random.rand(*batch_shape, *shape_args[i]).astype(ezsim.np_float)
 
-            tc_arg = torch.as_tensor(np_arg, dtype=gs.tc_float, device=gs.device)
+            tc_arg = torch.as_tensor(np_arg, dtype=ezsim.tc_float, device=ezsim.device)
             ti_type = ti.Vector if len(shape_args[i]) == 1 else ti.Matrix
-            ti_arg = ti_type.field(*shape_args[i], dtype=gs.ti_float, shape=batch_shape)
+            ti_arg = ti_type.field(*shape_args[i], dtype=ezsim.ti_float, shape=batch_shape)
             ti_arg.from_numpy(np_arg)
 
             if i < num_inputs:
@@ -156,8 +156,8 @@ def test_utils_geom_taichi_vs_tensor_consistency(batch_shape):
         kernel(*ti_args, *ti_outs)
 
         for np_out, tc_out, ti_out in zip(np_outs, tc_outs, ti_outs):
-            np.testing.assert_allclose(np_out, ti_out.to_numpy(), atol=1e2 * gs.EPS)
-            np.testing.assert_allclose(np_out, tc_out, atol=1e2 * gs.EPS)
+            np.testing.assert_allclose(np_out, ti_out.to_numpy(), atol=1e2 * ezsim.EPS)
+            np.testing.assert_allclose(np_out, tc_out, atol=1e2 * ezsim.EPS)
 
 
 @pytest.mark.parametrize("batch_shape", [(10, 40, 25), ()])
@@ -174,17 +174,17 @@ def test_utils_geom_taichi_inverse(batch_shape):
         ti_value_in_args, ti_transform_args, ti_value_out_args, ti_value_inv_out_args = [], [], [], []
         for i, shape_arg in enumerate(map(tuple, (*shapes_in, *shapes_value_args, *shapes_value_args))):
             if shape_arg in ((4, 4), (3, 3)):
-                R = gu.rotvec_to_R(np.random.rand(*batch_shape, 3).astype(gs.np_float))
+                R = gu.rotvec_to_R(np.random.rand(*batch_shape, 3).astype(ezsim.np_float))
                 if shape_arg == (4, 4):
-                    trans = np.random.rand(*batch_shape, 3).astype(gs.np_float)
+                    trans = np.random.rand(*batch_shape, 3).astype(ezsim.np_float)
                     np_arg = gu.trans_R_to_T(trans, R)
                 else:
                     np_arg = R
             else:
-                np_arg = np.random.rand(*batch_shape, *shape_arg).astype(gs.np_float)
+                np_arg = np.random.rand(*batch_shape, *shape_arg).astype(ezsim.np_float)
 
             ti_type = ti.Vector if len(shape_arg) == 1 else ti.Matrix
-            ti_arg = ti_type.field(*shape_arg, dtype=gs.ti_float, shape=batch_shape)
+            ti_arg = ti_type.field(*shape_arg, dtype=ezsim.ti_float, shape=batch_shape)
             ti_arg.from_numpy(np_arg)
 
             if i < len(shapes_value_args):
@@ -202,7 +202,7 @@ def test_utils_geom_taichi_inverse(batch_shape):
         kernel(*ti_value_out_args, *ti_transform_args, *ti_value_inv_out_args)
 
         for ti_value_in_arg, ti_value_inv_out_arg in zip(ti_value_in_args, ti_value_inv_out_args):
-            np.testing.assert_allclose(ti_value_in_arg.to_numpy(), ti_value_inv_out_arg.to_numpy(), atol=1e2 * gs.EPS)
+            np.testing.assert_allclose(ti_value_in_arg.to_numpy(), ti_value_inv_out_arg.to_numpy(), atol=1e2 * ezsim.EPS)
 
 
 @pytest.mark.parametrize("batch_shape", [(10, 40, 25), ()])
@@ -218,8 +218,8 @@ def test_utils_geom_taichi_identity(batch_shape):
         ti_args = []
         for shape_arg in (*shape_args, shape_args[0]):
             ti_type = ti.Vector if len(shape_arg) == 1 else ti.Matrix
-            ti_arg = ti_type.field(*shape_arg, dtype=gs.ti_float, shape=batch_shape)
-            ti_arg.from_numpy(np.random.rand(*batch_shape, *shape_arg).astype(gs.np_float))
+            ti_arg = ti_type.field(*shape_arg, dtype=ezsim.ti_float, shape=batch_shape)
+            ti_arg.from_numpy(np.random.rand(*batch_shape, *shape_arg).astype(ezsim.np_float))
             ti_args.append(ti_arg)
 
         num_funcs = len(ti_funcs)
@@ -227,7 +227,7 @@ def test_utils_geom_taichi_identity(batch_shape):
             kernel = _ti_kernel_wrapper(ti_func, 1, 1)
             kernel(*ti_args[i : (i + 2)])
 
-        np.testing.assert_allclose(ti_args[0].to_numpy(), ti_args[-1].to_numpy(), atol=1e2 * gs.EPS)
+        np.testing.assert_allclose(ti_args[0].to_numpy(), ti_args[-1].to_numpy(), atol=1e2 * ezsim.EPS)
 
 
 @pytest.mark.parametrize("batch_shape", [(10, 40, 25), ()])
@@ -241,10 +241,10 @@ def test_utils_geom_tensor_identity(batch_shape):
         np_args, tc_args = [], []
         for shape_arg in (*shape_args, shape_args[0]):
             if tuple(shape_arg) == (3, 3):
-                np_arg = gu.rotvec_to_R(np.random.rand(*batch_shape, 3).astype(gs.np_float))
+                np_arg = gu.rotvec_to_R(np.random.rand(*batch_shape, 3).astype(ezsim.np_float))
             else:
-                np_arg = np.random.rand(*batch_shape, *shape_arg).astype(gs.np_float)
-            tc_arg = torch.as_tensor(np_arg, dtype=gs.tc_float, device=gs.device)
+                np_arg = np.random.rand(*batch_shape, *shape_arg).astype(ezsim.np_float)
+            tc_arg = torch.as_tensor(np_arg, dtype=ezsim.tc_float, device=ezsim.device)
             np_args.append(np_arg)
             tc_args.append(tc_arg)
 
@@ -253,5 +253,5 @@ def test_utils_geom_tensor_identity(batch_shape):
             np_args[i + 1][:] = py_func(np_args[i])
             tc_args[i + 1][:] = py_func(tc_args[i])
 
-        np.testing.assert_allclose(np_args[0], np_args[-1], atol=1e2 * gs.EPS)
-        np.testing.assert_allclose(tensor_to_array(tc_args[0]), tensor_to_array(tc_args[-1]), atol=1e2 * gs.EPS)
+        np.testing.assert_allclose(np_args[0], np_args[-1], atol=1e2 * ezsim.EPS)
+        np.testing.assert_allclose(tensor_to_array(tc_args[0]), tensor_to_array(tc_args[-1]), atol=1e2 * ezsim.EPS)

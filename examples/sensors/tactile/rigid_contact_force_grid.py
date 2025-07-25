@@ -1,14 +1,14 @@
 import argparse
 
-import genesis as gs
+import ezsim
 import numpy as np
 import trimesh
-from genesis.sensors import NPZFileWriter, RigidContactForceGridSensor, SensorDataRecorder, VideoFileWriter
-from genesis.utils.misc import tensor_to_array
+from ezsim.sensors import NPZFileWriter, RigidContactForceGridSensor, SensorDataRecorder, VideoFileWriter
+from ezsim.utils.misc import tensor_to_array
 from tqdm import tqdm
 
 
-def visualize_grid_sensor(scene: gs.Scene, sensor: RigidContactForceGridSensor, min_force=0.0, max_force=1.0):
+def visualize_grid_sensor(scene: ezsim.Scene, sensor: RigidContactForceGridSensor, min_force=0.0, max_force=1.0):
     """
     Draws debug objects on scene to visualize the contact grid sensor data.
 
@@ -71,53 +71,53 @@ def main():
 
     args = parser.parse_args()
 
-    gs.init(backend=gs.gpu, logging_level=None)
+    ezsim.init(backend=ezsim.gpu, logging_level=None)
 
-    scene = gs.Scene(
-        sim_options=gs.options.SimOptions(
+    scene = ezsim.Scene(
+        sim_options=ezsim.options.SimOptions(
             dt=args.dt,
             substeps=args.substeps,
             gravity=(0, 0, -9.81),
         ),
-        rigid_options=gs.options.RigidOptions(
+        rigid_options=ezsim.options.RigidOptions(
             use_gjk_collision=True,
             constraint_timeconst=max(0.01, 2 * args.dt / args.substeps),
         ),
-        profiling_options=gs.options.ProfilingOptions(
+        profiling_options=ezsim.options.ProfilingOptions(
             show_FPS=False,
         ),
         show_viewer=args.vis,
     )
 
-    scene.add_entity(gs.morphs.Plane())
+    scene.add_entity(ezsim.morphs.Plane())
 
     block = scene.add_entity(
-        morph=gs.morphs.Box(
+        morph=ezsim.morphs.Box(
             pos=(0.0, 0.0, 0.2),
             euler=(0, 10, 0),
             size=(2.0, 2.0, 0.05),
             visualization=not args.debug,
         ),
-        material=gs.materials.Rigid(
+        material=ezsim.materials.Rigid(
             gravity_compensation=1.0,
         ),
     )
 
     sphere1 = scene.add_entity(
-        gs.morphs.Sphere(pos=(0.7, 0.4, 0.4), radius=0.1),
-        surface=gs.surfaces.Default(
+        ezsim.morphs.Sphere(pos=(0.7, 0.4, 0.4), radius=0.1),
+        surface=ezsim.surfaces.Default(
             color=(1.0, 0.0, 0.0, 1.0),
         ),
     )
     sphere2 = scene.add_entity(
-        gs.morphs.Sphere(pos=(-0.5, -0.3, 0.5), radius=0.1),
-        surface=gs.surfaces.Default(
+        ezsim.morphs.Sphere(pos=(-0.5, -0.3, 0.5), radius=0.1),
+        surface=ezsim.surfaces.Default(
             color=(0.0, 1.0, 0.0, 1.0),
         ),
     )
     sphere3 = scene.add_entity(
-        gs.morphs.Sphere(pos=(-0.2, 0.7, 0.6), radius=0.1),
-        surface=gs.surfaces.Default(
+        ezsim.morphs.Sphere(pos=(-0.2, 0.7, 0.6), radius=0.1),
+        surface=ezsim.surfaces.Default(
             color=(0.0, 0.0, 1.0, 1.0),
         ),
     )
@@ -144,9 +144,9 @@ def main():
             data_recorder.step()
 
     except KeyboardInterrupt:
-        gs.logger.info("Simulation interrupted, exiting.")
+        ezsim.logger.info("Simulation interrupted, exiting.")
     finally:
-        gs.logger.info("Simulation finished.")
+        ezsim.logger.info("Simulation finished.")
 
         data_recorder.stop_recording()
 

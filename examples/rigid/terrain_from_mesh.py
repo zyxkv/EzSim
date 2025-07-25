@@ -1,9 +1,9 @@
 import argparse
 import os
 
-import genesis as gs
+import ezsim
 import numpy as np
-from genesis.utils.terrain import mesh_to_heightfield
+from ezsim.utils.terrain import mesh_to_heightfield
 
 
 def main():
@@ -13,11 +13,11 @@ def main():
     args = parser.parse_args()
 
     ########################## init ##########################
-    gs.init(backend=gs.cpu if args.cpu else gs.gpu)
+    ezsim.init(backend=ezsim.cpu if args.cpu else ezsim.gpu)
 
     ########################## create a scene ##########################
-    scene = gs.Scene(
-        viewer_options=gs.options.ViewerOptions(
+    scene = ezsim.Scene(
+        viewer_options=ezsim.options.ViewerOptions(
             camera_pos=(0, -50, 0),
             camera_lookat=(0, 0, 0),
         ),
@@ -25,8 +25,8 @@ def main():
     )
 
     horizontal_scale = 2.0
-    gs_root = os.path.dirname(os.path.abspath(gs.__file__))
-    path_terrain = os.path.join(gs_root, "assets", "meshes", "terrain_45.obj")
+    ezsim_root = os.path.dirname(os.path.abspath(ezsim.__file__))
+    path_terrain = os.path.join(ezsim_root, "assets", "meshes", "terrain_45.obj")
     hf_terrain, xs, ys = mesh_to_heightfield(path_terrain, spacing=horizontal_scale, oversample=1)
     print("hf_terrain", path_terrain, hf_terrain.shape, np.max(hf_terrain))
 
@@ -35,7 +35,7 @@ def main():
     translation = np.array([np.nanmin(xs), np.nanmin(ys), 0])
 
     terrain_heightfield = scene.add_entity(
-        morph=gs.morphs.Terrain(
+        morph=ezsim.morphs.Terrain(
             horizontal_scale=horizontal_scale,
             vertical_scale=1.0,
             height_field=hf_terrain,
@@ -45,7 +45,7 @@ def main():
     )
 
     ball = scene.add_entity(
-        gs.morphs.Sphere(
+        ezsim.morphs.Sphere(
             pos=(10, 15, 10),
             radius=1,
         ),

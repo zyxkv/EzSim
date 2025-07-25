@@ -19,8 +19,8 @@ RUN usermod -aG video root
 # Necessary for visualisation on Wayland backed systems like Ubuntu
 ENV PYOPENGL_PLATFORM='glx'
 
-# Install Genesis verified against 0.2.1
-RUN pip3 install genesis-world trimesh
+# Install EzSim verified against 0.2.1
+RUN pip3 install ezsim trimesh
 
 # Workaround for igl issue
 RUN pip3 install libigl==2.5.1 

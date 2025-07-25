@@ -1,6 +1,6 @@
-# Contributing to Genesis
+# Contributing to EzSim
 
-Thank you for your interest in contributing to Genesis! We welcome contributions from everyone. Please take a moment to review this guide to ensure a smooth collaboration.
+Thank you for your interest in contributing to EzSim! We welcome contributions from everyone. Please take a moment to review this guide to ensure a smooth collaboration.
 
 - [Reporting Bugs](#reporting-bugs)
 - [Suggesting Features](#suggesting-features)
@@ -75,7 +75,7 @@ Thank you for your interest in contributing to Genesis! We welcome contributions
 
 ## Questions and Discussions
 
-- Use [Discussions](https://github.com/Genesis-Embodied-AI/Genesis/discussions) for open-ended topics.
+- Use [Discussions](https://github.com/zyxkv/EzSim/discussions) for open-ended topics.
 <!-- 
 ### Join Us
 - Follow the project’s progress and updates on [channel/community link]. -->
@@ -85,4 +85,4 @@ Thank you for your interest in contributing to Genesis! We welcome contributions
 We appreciate your contributions and look forward to collaborating with you!
 
 Thank you,  
-Genesis Maintainers
+EzSim Maintainers

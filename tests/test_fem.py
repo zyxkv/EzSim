@@ -3,8 +3,8 @@ import pytest
 import torch
 import igl
 
-import genesis as gs
-from genesis.utils.misc import tensor_to_array
+import ezsim
+from ezsim.utils.misc import tensor_to_array
 
 from .utils import assert_allclose, get_hf_assets
 
@@ -12,7 +12,7 @@ from .utils import assert_allclose, get_hf_assets
 @pytest.fixture(scope="session")
 def fem_material():
     """Fixture for common FEM material properties"""
-    return gs.materials.FEM.Muscle(
+    return ezsim.materials.FEM.Muscle(
         E=3.0e4,
         nu=0.45,
         rho=1000.0,
@@ -20,16 +20,16 @@ def fem_material():
     )
 
 
-@pytest.mark.parametrize("backend", [gs.cpu])
+@pytest.mark.parametrize("backend", [ezsim.cpu])
 def test_multiple_fem_entities(fem_material, show_viewer):
     """Test adding multiple FEM entities to the scene"""
-    scene = gs.Scene(
-        sim_options=gs.options.SimOptions(
+    scene = ezsim.Scene(
+        sim_options=ezsim.options.SimOptions(
             dt=5e-4,
             substeps=10,
             gravity=(0.0, 0.0, 0.0),
         ),
-        fem_options=gs.options.FEMOptions(
+        fem_options=ezsim.options.FEMOptions(
             damping=0.0,
         ),
         show_viewer=show_viewer,
@@ -37,7 +37,7 @@ def test_multiple_fem_entities(fem_material, show_viewer):
 
     # Add first FEM entity
     scene.add_entity(
-        morph=gs.morphs.Sphere(
+        morph=ezsim.morphs.Sphere(
             pos=(0.5, -0.2, 0.3),
             radius=0.1,
         ),
@@ -46,7 +46,7 @@ def test_multiple_fem_entities(fem_material, show_viewer):
 
     # Add second FEM entity
     scene.add_entity(
-        morph=gs.morphs.Box(
+        morph=ezsim.morphs.Box(
             size=(0.1, 0.1, 0.1),
             pos=(0.0, 0.0, 0.5),
         ),
@@ -61,7 +61,7 @@ def test_multiple_fem_entities(fem_material, show_viewer):
         scene.step()
 
 
-@pytest.mark.parametrize("backend", [gs.cpu])
+@pytest.mark.parametrize("backend", [ezsim.cpu])
 def test_interior_tetrahedralized_vertex(fem_material, show_viewer, box_obj_path, cube_verts_and_faces):
     """
     Test tetrahedralization of a FEM entity with a small maxvolume value that introduces
@@ -71,12 +71,12 @@ def test_interior_tetrahedralized_vertex(fem_material, show_viewer, box_obj_path
     """
     verts, faces = cube_verts_and_faces
 
-    scene = gs.Scene(
+    scene = ezsim.Scene(
         show_viewer=show_viewer,
     )
 
     fem = scene.add_entity(
-        morph=gs.morphs.Mesh(
+        morph=ezsim.morphs.Mesh(
             file=box_obj_path,
             nobisect=False,
             minratio=1.5,
@@ -175,22 +175,22 @@ def test_interior_tetrahedralized_vertex(fem_material, show_viewer, box_obj_path
     )
 
 
-@pytest.mark.parametrize("backend", [gs.cpu])
+@pytest.mark.parametrize("backend", [ezsim.cpu])
 def test_maxvolume(fem_material, show_viewer, box_obj_path):
     """Test that imposing a maximum element volume constraint produces a finer mesh (i.e., more elements)."""
-    scene = gs.Scene(
+    scene = ezsim.Scene(
         show_viewer=show_viewer,
     )
 
     # Mesh without any maximum-element-volume constraint
     fem1 = scene.add_entity(
-        morph=gs.morphs.Mesh(file=box_obj_path, nobisect=False, verbose=1),
+        morph=ezsim.morphs.Mesh(file=box_obj_path, nobisect=False, verbose=1),
         material=fem_material,
     )
 
     # Mesh with maximum element volume limited to 0.01
     fem2 = scene.add_entity(
-        morph=gs.morphs.Mesh(file=box_obj_path, nobisect=False, maxvolume=0.01, verbose=1),
+        morph=ezsim.morphs.Mesh(file=box_obj_path, nobisect=False, maxvolume=0.01, verbose=1),
         material=fem_material,
     )
 
@@ -203,16 +203,16 @@ def test_maxvolume(fem_material, show_viewer, box_obj_path):
 @pytest.fixture(scope="session")
 def fem_material_linear():
     """Fixture for common FEM linear material properties"""
-    return gs.materials.FEM.Elastic()
+    return ezsim.materials.FEM.Elastic()
 
 
 def test_sphere_box_fall_implicit_fem_coupler(fem_material_linear, show_viewer):
-    scene = gs.Scene(
-        sim_options=gs.options.SimOptions(
+    scene = ezsim.Scene(
+        sim_options=ezsim.options.SimOptions(
             dt=1.0 / 60.0,
             substeps=2,
         ),
-        fem_options=gs.options.FEMOptions(
+        fem_options=ezsim.options.FEMOptions(
             use_implicit_solver=True,
         ),
         show_viewer=show_viewer,
@@ -221,7 +221,7 @@ def test_sphere_box_fall_implicit_fem_coupler(fem_material_linear, show_viewer):
 
     # Add first FEM entity
     scene.add_entity(
-        morph=gs.morphs.Sphere(
+        morph=ezsim.morphs.Sphere(
             pos=(0.5, -0.2, 0.3),
             radius=0.1,
         ),
@@ -230,7 +230,7 @@ def test_sphere_box_fall_implicit_fem_coupler(fem_material_linear, show_viewer):
 
     # Add second FEM entity
     scene.add_entity(
-        morph=gs.morphs.Box(
+        morph=ezsim.morphs.Box(
             size=(0.1, 0.1, 0.1),
             pos=(0.0, 0.0, 0.5),
         ),
@@ -254,21 +254,21 @@ def test_sphere_box_fall_implicit_fem_coupler(fem_material_linear, show_viewer):
 
 
 def test_sphere_fall_implicit_fem_sap_coupler(fem_material_linear, show_viewer):
-    scene = gs.Scene(
-        sim_options=gs.options.SimOptions(
+    scene = ezsim.Scene(
+        sim_options=ezsim.options.SimOptions(
             dt=1.0 / 60.0,
             substeps=2,
         ),
-        fem_options=gs.options.FEMOptions(
+        fem_options=ezsim.options.FEMOptions(
             use_implicit_solver=True,
         ),
-        coupler_options=gs.options.SAPCouplerOptions(),
+        coupler_options=ezsim.options.SAPCouplerOptions(),
         show_viewer=show_viewer,
         show_FPS=False,
     )
 
     scene.add_entity(
-        morph=gs.morphs.Sphere(
+        morph=ezsim.morphs.Sphere(
             pos=(0.5, -0.2, 0.5),
             radius=0.1,
         ),
@@ -294,26 +294,26 @@ def test_sphere_fall_implicit_fem_sap_coupler(fem_material_linear, show_viewer):
 @pytest.fixture(scope="session")
 def fem_material_linear_corotated():
     """Fixture for common FEM linear material properties"""
-    return gs.materials.FEM.Elastic(model="linear_corotated")
+    return ezsim.materials.FEM.Elastic(model="linear_corotated")
 
 
 def test_linear_corotated_sphere_fall_implicit_fem_sap_coupler(fem_material_linear_corotated, show_viewer):
-    scene = gs.Scene(
-        sim_options=gs.options.SimOptions(
+    scene = ezsim.Scene(
+        sim_options=ezsim.options.SimOptions(
             dt=1.0 / 60.0,
             substeps=2,
         ),
         # Not using default fem_options to make it faster, linear material only need one iteration without linesearch
-        fem_options=gs.options.FEMOptions(
+        fem_options=ezsim.options.FEMOptions(
             use_implicit_solver=True,
         ),
-        coupler_options=gs.options.SAPCouplerOptions(),
+        coupler_options=ezsim.options.SAPCouplerOptions(),
         show_viewer=show_viewer,
         show_FPS=False,
     )
 
     scene.add_entity(
-        morph=gs.morphs.Sphere(
+        morph=ezsim.morphs.Sphere(
             pos=(0.5, -0.2, 0.5),
             radius=0.1,
         ),
@@ -348,25 +348,25 @@ def test_linear_corotated_sphere_fall_implicit_fem_sap_coupler(fem_material_line
 @pytest.fixture(scope="session")
 def fem_material_linear_corotated_soft():
     """Fixture for common FEM linear material properties"""
-    return gs.materials.FEM.Elastic(model="linear_corotated", E=1.0e5, nu=0.4)
+    return ezsim.materials.FEM.Elastic(model="linear_corotated", E=1.0e5, nu=0.4)
 
 
 def test_fem_sphere_box_self(fem_material_linear_corotated, fem_material_linear_corotated_soft, show_viewer):
-    scene = gs.Scene(
-        sim_options=gs.options.SimOptions(
+    scene = ezsim.Scene(
+        sim_options=ezsim.options.SimOptions(
             dt=1 / 60,
             substeps=2,
         ),
-        fem_options=gs.options.FEMOptions(
+        fem_options=ezsim.options.FEMOptions(
             use_implicit_solver=True,
         ),
-        coupler_options=gs.options.SAPCouplerOptions(),
+        coupler_options=ezsim.options.SAPCouplerOptions(),
         show_viewer=show_viewer,
     )
 
     # Add first FEM entity
     scene.add_entity(
-        morph=gs.morphs.Sphere(
+        morph=ezsim.morphs.Sphere(
             pos=(0.0, 0.0, 0.1),
             radius=0.1,
         ),
@@ -377,7 +377,7 @@ def test_fem_sphere_box_self(fem_material_linear_corotated, fem_material_linear_
     scale = 0.1
     asset_path = get_hf_assets(pattern="meshes/cube8.obj")
     scene.add_entity(
-        morph=gs.morphs.Mesh(
+        morph=ezsim.morphs.Mesh(
             file=f"{asset_path}/meshes/cube8.obj",
             scale=scale,
             pos=(0.0, 0.0, scale * 4.0),
@@ -407,12 +407,12 @@ def test_box_hard_vertex_constraint(show_viewer):
     Test if a box with hard vertex constraints has those vertices fixed,
     and that updating and removing constraints works correctly.
     """
-    scene = gs.Scene(
-        sim_options=gs.options.SimOptions(
+    scene = ezsim.Scene(
+        sim_options=ezsim.options.SimOptions(
             dt=1e-3,
             substeps=1,
         ),
-        fem_options=gs.options.FEMOptions(
+        fem_options=ezsim.options.FEMOptions(
             use_implicit_solver=False,
             gravity=(0.0, 0.0, -9.81),
         ),
@@ -421,11 +421,11 @@ def test_box_hard_vertex_constraint(show_viewer):
     )
 
     box = scene.add_entity(
-        morph=gs.morphs.Box(
+        morph=ezsim.morphs.Box(
             size=(0.1, 0.1, 0.1),
             pos=(0.0, 0.0, 0.5),
         ),
-        material=gs.materials.FEM.Elastic(),
+        material=ezsim.materials.FEM.Elastic(),
     )
     verts_idx = [0, 3]
     initial_target_poss = box.init_positions[verts_idx]
@@ -444,7 +444,7 @@ def test_box_hard_vertex_constraint(show_viewer):
     assert_allclose(
         positions, initial_target_poss, tol=0.0
     ), "Vertices should stay at initial target positions with hard constraints"
-    new_target_poss = initial_target_poss + gs.tensor(
+    new_target_poss = initial_target_poss + ezsim.tensor(
         [[0.1, 0.1, 0.1], [0.1, 0.1, 0.1]],
     )
     box.update_constraint_targets(verts_idx=verts_idx, target_poss=new_target_poss)
@@ -472,12 +472,12 @@ def test_box_hard_vertex_constraint(show_viewer):
 
 def test_box_soft_vertex_constraint(show_viewer):
     """Test if a box with strong soft vertex constraints has those vertices near."""
-    scene = gs.Scene(
-        sim_options=gs.options.SimOptions(
+    scene = ezsim.Scene(
+        sim_options=ezsim.options.SimOptions(
             dt=1e-3,
             substeps=1,
         ),
-        fem_options=gs.options.FEMOptions(
+        fem_options=ezsim.options.FEMOptions(
             use_implicit_solver=False,
             gravity=(0.0, 0.0, 0.0),
         ),
@@ -486,11 +486,11 @@ def test_box_soft_vertex_constraint(show_viewer):
     )
 
     box = scene.add_entity(
-        morph=gs.morphs.Box(
+        morph=ezsim.morphs.Box(
             size=(0.1, 0.1, 0.1),
             pos=(0.0, 0.0, 0.5),
         ),
-        material=gs.materials.FEM.Elastic(),
+        material=ezsim.materials.FEM.Elastic(),
     )
     verts_idx = [0, 1]
     target_poss = box.init_positions[verts_idx]
@@ -506,7 +506,7 @@ def test_box_soft_vertex_constraint(show_viewer):
         is_soft_constraint=True,
         stiffness=2.0e5,
     )
-    box.set_velocity(gs.tensor([1.0, 1.0, 1.0]) * 1e-2)
+    box.set_velocity(ezsim.tensor([1.0, 1.0, 1.0]) * 1e-2)
 
     for _ in range(500):
         scene.step()

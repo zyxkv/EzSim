@@ -2,7 +2,7 @@ import argparse
 
 from huggingface_hub import snapshot_download
 
-import genesis as gs
+import ezsim
 
 
 def main():
@@ -12,11 +12,11 @@ def main():
     args = parser.parse_args()
 
     ########################## init ##########################
-    gs.init(backend=gs.cpu if args.cpu else gs.gpu, precision="32", seed=0)
+    ezsim.init(backend=ezsim.cpu if args.cpu else ezsim.gpu, precision="32", seed=0)
 
     ########################## create a scene ##########################
-    scene = gs.Scene(
-        rigid_options=gs.options.RigidOptions(
+    scene = ezsim.Scene(
+        rigid_options=ezsim.options.RigidOptions(
             dt=0.01,
         ),
         show_viewer=args.vis,
@@ -25,7 +25,7 @@ def main():
 
     ########################## entities ##########################
     scene.add_entity(
-        gs.morphs.Mesh(
+        ezsim.morphs.Mesh(
             file="meshes/tank.obj",
             scale=5.0,
             fixed=True,
@@ -40,7 +40,7 @@ def main():
             repo_type="dataset", repo_id="Genesis-Intelligence/assets", allow_patterns=f"{asset_name}/*"
         )
         scene.add_entity(
-            gs.morphs.MJCF(
+            ezsim.morphs.MJCF(
                 file=f"{asset_path}/{asset_name}/output.xml",
                 pos=(0.0, 0.15 * (i - 1.5), 0.7),
             ),

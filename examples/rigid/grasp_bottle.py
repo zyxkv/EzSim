@@ -2,7 +2,7 @@ import argparse
 
 import numpy as np
 
-import genesis as gs
+import ezsim
 
 
 def main():
@@ -12,19 +12,19 @@ def main():
     args = parser.parse_args()
 
     ########################## init ##########################
-    gs.init(backend=gs.gpu)
+    ezsim.init(backend=ezsim.gpu)
 
     ########################## create a scene ##########################
-    viewer_options = gs.options.ViewerOptions(
+    viewer_options = ezsim.options.ViewerOptions(
         camera_pos=(3, -1, 1.5),
         camera_lookat=(0.0, 0.0, 0.0),
         camera_fov=30,
         max_FPS=60,
     )
 
-    scene = gs.Scene(
+    scene = ezsim.Scene(
         viewer_options=viewer_options,
-        rigid_options=gs.options.RigidOptions(
+        rigid_options=ezsim.options.RigidOptions(
             dt=0.01,
         ),
         show_viewer=args.vis,
@@ -32,11 +32,11 @@ def main():
 
     ########################## entities ##########################
     plane = scene.add_entity(
-        gs.morphs.URDF(file="urdf/plane/plane.urdf", fixed=True),
+        ezsim.morphs.URDF(file="urdf/plane/plane.urdf", fixed=True),
     )
     bottle = scene.add_entity(
-        material=gs.materials.Rigid(rho=300),
-        morph=gs.morphs.URDF(
+        material=ezsim.materials.Rigid(rho=300),
+        morph=ezsim.morphs.URDF(
             file="urdf/3763/mobility_vhacd.urdf",
             scale=0.09,
             pos=(0.65, 0.0, 0.036),
@@ -45,7 +45,7 @@ def main():
         # visualize_contact=True,
     )
     franka = scene.add_entity(
-        gs.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
+        ezsim.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
     )
 
     ########################## build ##########################

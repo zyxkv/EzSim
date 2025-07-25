@@ -1,6 +1,6 @@
 # Drone Examples
 
-This directory contains examples of drone simulations using the Genesis framework.
+This directory contains examples of drone simulations using the EzSim framework.
 
 ## Available Examples
 

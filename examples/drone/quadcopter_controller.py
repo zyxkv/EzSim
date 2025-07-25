@@ -1,7 +1,7 @@
 import torch
 import numpy as np
-from genesis.engine.entities.drone_entity import DroneEntity
-from genesis.utils.geom import quat_to_xyz
+from ezsim.engine.entities.drone_entity import DroneEntity
+from ezsim.utils.geom import quat_to_xyz
 
 
 class PIDController:

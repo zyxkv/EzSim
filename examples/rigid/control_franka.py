@@ -2,7 +2,7 @@ import argparse
 
 import numpy as np
 
-import genesis as gs
+import ezsim
 
 
 def main():
@@ -11,19 +11,19 @@ def main():
     args = parser.parse_args()
 
     ########################## init ##########################
-    gs.init(backend=gs.gpu)
+    ezsim.init(backend=ezsim.gpu)
 
     ########################## create a scene ##########################
-    viewer_options = gs.options.ViewerOptions(
+    viewer_options = ezsim.options.ViewerOptions(
         camera_pos=(0, -3.5, 2.5),
         camera_lookat=(0.0, 0.0, 0.5),
         camera_fov=40,
         max_FPS=60,
     )
 
-    scene = gs.Scene(
+    scene = ezsim.Scene(
         viewer_options=viewer_options,
-        sim_options=gs.options.SimOptions(
+        sim_options=ezsim.options.SimOptions(
             dt=0.01,
         ),
         show_viewer=args.vis,
@@ -31,10 +31,10 @@ def main():
 
     ########################## entities ##########################
     plane = scene.add_entity(
-        gs.morphs.Plane(),
+        ezsim.morphs.Plane(),
     )
     franka = scene.add_entity(
-        gs.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
+        ezsim.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
     )
     ########################## build ##########################
     scene.build()

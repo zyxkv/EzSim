@@ -1,15 +1,15 @@
 import argparse
 
-import genesis as gs
+import ezsim
 import numpy as np
 import trimesh
-from genesis.sensors import NPZFileWriter, RigidContactForceGridSensor, SensorDataRecorder, VideoFileWriter
-from genesis.utils.misc import tensor_to_array
+from ezsim.sensors import NPZFileWriter, RigidContactForceGridSensor, SensorDataRecorder, VideoFileWriter
+from ezsim.utils.misc import tensor_to_array
 from huggingface_hub import snapshot_download
 from tqdm import tqdm
 
 
-def visualize_grid_sensor(scene: gs.Scene, sensor: RigidContactForceGridSensor, min_force=0.0, max_force=1.0):
+def visualize_grid_sensor(scene: ezsim.Scene, sensor: RigidContactForceGridSensor, min_force=0.0, max_force=1.0):
     """
     Draws debug objects on scene to visualize the contact grid sensor data.
 
@@ -72,27 +72,27 @@ def main():
 
     args = parser.parse_args()
 
-    gs.init(backend=gs.gpu, logging_level=None)
+    ezsim.init(backend=ezsim.gpu, logging_level=None)
 
     ########################## scene setup ##########################
-    scene = gs.Scene(
-        sim_options=gs.options.SimOptions(
+    scene = ezsim.Scene(
+        sim_options=ezsim.options.SimOptions(
             dt=args.dt,
         ),
-        profiling_options=gs.options.ProfilingOptions(
+        profiling_options=ezsim.options.ProfilingOptions(
             show_FPS=False,
         ),
-        rigid_options=gs.options.RigidOptions(
+        rigid_options=ezsim.options.RigidOptions(
             use_gjk_collision=True,
             constraint_timeconst=max(0.01, 2 * args.dt / args.substeps),
         ),
-        vis_options=gs.options.VisOptions(
+        vis_options=ezsim.options.VisOptions(
             show_world_frame=False,
         ),
         show_viewer=args.vis,
     )
 
-    scene.add_entity(gs.morphs.Plane())
+    scene.add_entity(ezsim.morphs.Plane())
 
     # define which fingertips we want to add sensors to
     sensorized_link_names = [
@@ -107,25 +107,25 @@ def main():
         repo_id="Genesis-Intelligence/assets", allow_patterns="allegro_hand/*", repo_type="dataset"
     )
     hand = scene.add_entity(
-        morph=gs.morphs.URDF(
+        morph=ezsim.morphs.URDF(
             file=f"{asset_path}/allegro_hand/allegro_hand_right_glb.urdf",
             pos=(0.0, 0.0, 0.1),
             euler=(0.0, -90.0, 180.0),
             fixed=True,  # Fix the base so the whole hand doesn't flop on the ground
             links_to_keep=sensorized_link_names,  # Make sure the links we want to sensorize aren't merged
         ),
-        material=gs.materials.Rigid(),
+        material=ezsim.materials.Rigid(),
     )
 
     # Some arbitrary objects to interact with the hand: spheres arranged in a circle
     pos_radius = 0.06
     for i in range(10):
         scene.add_entity(
-            gs.morphs.Sphere(
+            ezsim.morphs.Sphere(
                 pos=(pos_radius * np.cos(i * np.pi / 5) + 0.02, pos_radius * np.sin(i * np.pi / 5), 0.3 + 0.04 * i),
                 radius=0.02,
             ),
-            surface=gs.surfaces.Default(
+            surface=ezsim.surfaces.Default(
                 color=(0.0, 1.0, 1.0, 0.5),
             ),
         )
@@ -178,9 +178,9 @@ def main():
             data_recorder.step()
 
     except KeyboardInterrupt:
-        gs.logger.info("Simulation interrupted, exiting.")
+        ezsim.logger.info("Simulation interrupted, exiting.")
     finally:
-        gs.logger.info("Simulation finished.")
+        ezsim.logger.info("Simulation finished.")
 
         data_recorder.stop_recording()
 

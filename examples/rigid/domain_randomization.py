@@ -3,7 +3,7 @@ import argparse
 import numpy as np
 import torch
 
-import genesis as gs
+import ezsim
 
 
 def main():
@@ -12,29 +12,29 @@ def main():
     args = parser.parse_args()
 
     ########################## init ##########################
-    gs.init(seed=0, precision="32", logging_level="debug")
+    ezsim.init(seed=0, precision="32", logging_level="debug")
 
     ########################## create a scene ##########################
-    scene = gs.Scene(
-        viewer_options=gs.options.ViewerOptions(
+    scene = ezsim.Scene(
+        viewer_options=ezsim.options.ViewerOptions(
             camera_pos=(0.0, -2, 1.5),
             camera_lookat=(0.0, 0.0, 0.5),
             camera_fov=40,
             max_FPS=200,
         ),
         show_viewer=args.vis,
-        rigid_options=gs.options.RigidOptions(
+        rigid_options=ezsim.options.RigidOptions(
             dt=0.01,
-            constraint_solver=gs.constraint_solver.Newton,
+            constraint_solver=ezsim.constraint_solver.Newton,
         ),
     )
 
     ########################## entities ##########################
     scene.add_entity(
-        gs.morphs.Plane(),
+        ezsim.morphs.Plane(),
     )
     robot = scene.add_entity(
-        gs.morphs.URDF(
+        ezsim.morphs.URDF(
             file="urdf/go2/urdf/go2.urdf",
             pos=(0, 0, 0.4),
         ),

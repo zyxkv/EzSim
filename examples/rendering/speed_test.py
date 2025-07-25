@@ -1,6 +1,6 @@
 import argparse
 
-import genesis as gs
+import ezsim
 
 
 def main():
@@ -9,14 +9,14 @@ def main():
     args = parser.parse_args()
 
     ########################## init ##########################
-    gs.init(backend=gs.gpu)
+    ezsim.init(backend=ezsim.gpu)
 
-    scene = gs.Scene(
+    scene = ezsim.Scene(
         show_viewer=False,
-        vis_options=gs.options.VisOptions(
+        vis_options=ezsim.options.VisOptions(
             plane_reflection=False,
         ),
-        rigid_options=gs.options.RigidOptions(
+        rigid_options=ezsim.options.RigidOptions(
             dt=0.01,
             # enable_collision=True,
             # enable_joint_limit=True,
@@ -25,10 +25,10 @@ def main():
 
     ########################## entities ##########################
     plane = scene.add_entity(
-        gs.morphs.Plane(),
+        ezsim.morphs.Plane(),
     )
     cube = scene.add_entity(
-        gs.morphs.Box(
+        ezsim.morphs.Box(
             size=(0.5, 0.5, 0.5),
             pos=(0, 0, 0),
         ),

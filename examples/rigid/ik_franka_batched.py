@@ -2,7 +2,7 @@ import argparse
 
 import numpy as np
 
-import genesis as gs
+import ezsim
 
 
 def main():
@@ -12,19 +12,19 @@ def main():
     args = parser.parse_args()
 
     ########################## init ##########################
-    gs.init(seed=0, precision="32", logging_level="debug")
+    ezsim.init(seed=0, precision="32", logging_level="debug")
     np.set_printoptions(precision=7, suppress=True)
 
     ########################## create a scene ##########################
-    scene = gs.Scene(
-        viewer_options=gs.options.ViewerOptions(
+    scene = ezsim.Scene(
+        viewer_options=ezsim.options.ViewerOptions(
             camera_pos=(0.0, -2, 1.5),
             camera_lookat=(0.0, 0.0, 0.5),
             camera_fov=40,
             max_FPS=200,
         ),
         show_viewer=args.vis,
-        rigid_options=gs.options.RigidOptions(
+        rigid_options=ezsim.options.RigidOptions(
             enable_joint_limit=False,
             enable_collision=False,
             gravity=(0, 0, -0),
@@ -33,18 +33,18 @@ def main():
 
     ########################## entities ##########################
     plane = scene.add_entity(
-        gs.morphs.Plane(),
+        ezsim.morphs.Plane(),
     )
     robot = scene.add_entity(
-        gs.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
+        ezsim.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
     )
 
     target_entity = scene.add_entity(
-        gs.morphs.Mesh(
+        ezsim.morphs.Mesh(
             file="meshes/axis.obj",
             scale=0.15,
         ),
-        surface=gs.surfaces.Default(color=(1, 0.5, 0.5, 1)),
+        surface=ezsim.surfaces.Default(color=(1, 0.5, 0.5, 1)),
     )
 
     ########################## build ##########################

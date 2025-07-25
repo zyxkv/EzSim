@@ -1,6 +1,6 @@
 import argparse
 import numpy as np
-import genesis as gs
+import ezsim
 import time
 import threading
 from pynput import keyboard
@@ -115,19 +115,19 @@ def main():
     parser.add_argument("-m", "--mac", action="store_true", default=False, help="Running on MacOS (default: False)")
     args = parser.parse_args()
 
-    # Initialize Genesis
-    gs.init(backend=gs.cpu)
+    # Initialize EzSim
+    ezsim.init(backend=ezsim.cpu)
 
     # Create scene with initial camera view
-    viewer_options = gs.options.ViewerOptions(
+    viewer_options = ezsim.options.ViewerOptions(
         camera_pos=(0.0, -4.0, 2.0),  # Now behind the drone (negative Y)
         camera_lookat=(0.0, 0.0, 0.5),
         camera_fov=45,
         max_FPS=60,
     )
 
-    scene = gs.Scene(
-        sim_options=gs.options.SimOptions(
+    scene = ezsim.Scene(
+        sim_options=ezsim.options.SimOptions(
             dt=0.01,
             gravity=(0, 0, -9.81),
         ),
@@ -136,9 +136,9 @@ def main():
     )
 
     # Add entities
-    plane = scene.add_entity(gs.morphs.Plane())
+    plane = scene.add_entity(ezsim.morphs.Plane())
     drone = scene.add_entity(
-        morph=gs.morphs.Drone(
+        morph=ezsim.morphs.Drone(
             file="urdf/drones/cf2x.urdf",
             pos=(0.0, 0, 0.5),  # Start a bit higher
         ),

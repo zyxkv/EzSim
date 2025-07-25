@@ -1,9 +1,6 @@
-[submodule "doc"]
-	path = doc
-	url = https://github.com/Genesis-Embodied-AI/genesis-doc
-[submodule "genesis/ext/LuisaRender"]
-	path = genesis/ext/LuisaRender
+[submodule "ezsim/ext/LuisaRender"]
+	path = ezsim/ext/LuisaRender
 	url = https://github.com/Alif-01/LuisaRender
-[submodule "genesis/ext/ParticleMesher"]
-	path = genesis/ext/ParticleMesher
+[submodule "ezsim/ext/ParticleMesher"]
+	path = ezsim/ext/ParticleMesher
 	url = https://github.com/ACMLCZH/ParticleMesher

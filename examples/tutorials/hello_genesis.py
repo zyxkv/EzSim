@@ -1,18 +1,18 @@
-import genesis as gs
+import ezsim
 
-gs.init(backend=gs.cpu)
+ezsim.init(backend=ezsim.cpu)
 
-scene = gs.Scene()
+scene = ezsim.Scene()
 
 plane = scene.add_entity(
-    gs.morphs.Plane(),
+    ezsim.morphs.Plane(),
 )
 franka = scene.add_entity(
-    # gs.morphs.URDF(
+    # ezsim.morphs.URDF(
     #     file='urdf/panda_bullet/panda.urdf',
     #     fixed=True,
     # ),
-    gs.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
+    ezsim.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
 )
 
 scene.build()

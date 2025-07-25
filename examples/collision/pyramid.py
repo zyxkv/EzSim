@@ -1,5 +1,5 @@
 import numpy as np
-import genesis as gs
+import ezsim
 import argparse
 
 pile_type = "static"
@@ -14,21 +14,21 @@ args = parser.parse_args()
 pile_type = args.pile_type
 num_cubes = args.num_cubes
 cpu = args.cpu
-backend = gs.cpu if cpu else gs.gpu
+backend = ezsim.cpu if cpu else ezsim.gpu
 
-gs.init(backend=backend, precision="32")
+ezsim.init(backend=backend, precision="32")
 
-scene = gs.Scene(
-    sim_options=gs.options.SimOptions(
+scene = ezsim.Scene(
+    sim_options=ezsim.options.SimOptions(
         dt=0.01,
     ),
-    rigid_options=gs.options.RigidOptions(
+    rigid_options=ezsim.options.RigidOptions(
         box_box_detection=False,
         max_collision_pairs=1000,
         use_gjk_collision=True,
         enable_mujoco_compatibility=False,
     ),
-    viewer_options=gs.options.ViewerOptions(
+    viewer_options=ezsim.options.ViewerOptions(
         camera_pos=(0, -5.5, 2.5),
         camera_lookat=(0, 0.0, 1.5),
         camera_fov=30,
@@ -37,7 +37,7 @@ scene = gs.Scene(
     show_viewer=True,
 )
 
-plane = scene.add_entity(gs.morphs.Plane(pos=(0, 0, 0)))
+plane = scene.add_entity(ezsim.morphs.Plane(pos=(0, 0, 0)))
 
 # create pyramid of boxes
 box_size = 0.25
@@ -51,7 +51,7 @@ boxes = {}
 for i in range(num_cubes):
     for j in range(num_cubes - i):
         box = scene.add_entity(
-            gs.morphs.Box(size=box_size * vec_one, pos=box_pos_offset + box_spacing * np.array([i + 0.5 * j, 0, j])),
+            ezsim.morphs.Box(size=box_size * vec_one, pos=box_pos_offset + box_spacing * np.array([i + 0.5 * j, 0, j])),
         )
 
 scene.build()

@@ -1,6 +1,6 @@
 import argparse
 
-import genesis as gs
+import ezsim
 
 
 def main():
@@ -11,11 +11,11 @@ def main():
     args = parser.parse_args()
 
     ########################## init ##########################
-    gs.init(backend=gs.cpu if args.cpu else gs.gpu)
+    ezsim.init(backend=ezsim.cpu if args.cpu else ezsim.gpu)
 
     ########################## create a scene ##########################
-    scene = gs.Scene(
-        viewer_options=gs.options.ViewerOptions(
+    scene = ezsim.Scene(
+        viewer_options=ezsim.options.ViewerOptions(
             camera_pos=(3.5, 0.0, 2.5),
             camera_lookat=(0.0, 0.0, 0.5),
             camera_fov=40,
@@ -25,7 +25,7 @@ def main():
 
     ########################## entities ##########################
     tank = scene.add_entity(
-        gs.morphs.Mesh(
+        ezsim.morphs.Mesh(
             file="meshes/tank.obj",
             scale=5.0,
             fixed=True,
@@ -34,7 +34,7 @@ def main():
         # vis_mode="collision",
     )
     ball = scene.add_entity(
-        gs.morphs.Sphere(
+        ezsim.morphs.Sphere(
             radius=0.1,
             pos=(0.0, 0.0, 1.0),
         ),

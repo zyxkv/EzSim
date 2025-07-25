@@ -1,29 +1,29 @@
 import numpy as np
 
-import genesis as gs
+import ezsim
 
 ########################## init ##########################
-gs.init()
+ezsim.init()
 
 ########################## create a scene ##########################
-scene = gs.Scene(
-    viewer_options=gs.options.ViewerOptions(
+scene = ezsim.Scene(
+    viewer_options=ezsim.options.ViewerOptions(
         camera_pos=(0.0, -2, 1.5),
         camera_lookat=(0.0, 0.0, 0.5),
         camera_fov=40,
         max_FPS=200,
     ),
-    rigid_options=gs.options.RigidOptions(
+    rigid_options=ezsim.options.RigidOptions(
         enable_joint_limit=False,
     ),
 )
 
 ########################## entities ##########################
 plane = scene.add_entity(
-    gs.morphs.Plane(),
+    ezsim.morphs.Plane(),
 )
 robot = scene.add_entity(
-    gs.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
+    ezsim.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
 )
 
 ########################## build ##########################

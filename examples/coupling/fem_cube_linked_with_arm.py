@@ -1,4 +1,4 @@
-import genesis as gs
+import ezsim
 import numpy as np
 import argparse
 from tqdm import tqdm
@@ -24,32 +24,32 @@ def main():
         dt = args.dt if args.dt is not None else 1e-3
         substeps = args.substeps if args.substeps is not None else 1
 
-    gs.init(backend=gs.gpu, logging_level=None)
+    ezsim.init(backend=ezsim.gpu, logging_level=None)
 
-    scene = gs.Scene(
-        sim_options=gs.options.SimOptions(
+    scene = ezsim.Scene(
+        sim_options=ezsim.options.SimOptions(
             dt=dt,
             substeps=substeps,
             gravity=(0, 0, -9.81),
         ),
-        fem_options=gs.options.FEMOptions(
+        fem_options=ezsim.options.FEMOptions(
             use_implicit_solver=args.solver == "implicit",
         ),
-        profiling_options=gs.options.ProfilingOptions(
+        profiling_options=ezsim.options.ProfilingOptions(
             show_FPS=False,
         ),
         show_viewer=args.vis,
     )
 
     # Setup scene entities
-    scene.add_entity(gs.morphs.Plane())
+    scene.add_entity(ezsim.morphs.Plane())
 
     cube = scene.add_entity(
-        morph=gs.morphs.Box(
+        morph=ezsim.morphs.Box(
             pos=(0.5, 0.0, 0.05),
             size=(0.2, 0.2, 0.2),
         ),
-        material=gs.materials.FEM.Elastic(
+        material=ezsim.materials.FEM.Elastic(
             E=1.0e4,  # stiffness
             nu=0.45,  # compressibility (0 to 0.5)
             rho=1000.0,  # density
@@ -57,7 +57,7 @@ def main():
         ),
     )
     arm = scene.add_entity(
-        morph=gs.morphs.MJCF(
+        morph=ezsim.morphs.MJCF(
             file="xml/franka_emika_panda/panda.xml",
             pos=(0, 0, 0),
         ),
@@ -118,8 +118,8 @@ def main():
         scene.draw_debug_spheres(poss=[arm_target_pos], radius=0.02, color=(0.0, 1.0, 0.0, 0.8))
         qpos = arm.inverse_kinematics(
             link=end_joint.link,
-            pos=np.array(arm_target_pos, gs.np_float),
-            quat=np.array((0.0, 1.0, 0.0, 0.0), gs.np_float),
+            pos=np.array(arm_target_pos, ezsim.np_float),
+            quat=np.array((0.0, 1.0, 0.0, 0.0), ezsim.np_float),
         )
         arm_path_waypoints = arm.plan_path(qpos_goal=qpos, num_waypoints=int(1 / dt))
 
@@ -139,14 +139,14 @@ def main():
                 cam.render()
 
     except KeyboardInterrupt:
-        gs.logger.info("Simulation interrupted, exiting.")
+        ezsim.logger.info("Simulation interrupted, exiting.")
     finally:
-        gs.logger.info("Simulation finished.")
+        ezsim.logger.info("Simulation finished.")
 
         actual_fps = video_fps / frame_interval
         video_filename = f"cube_link_arm_{args.solver}_dt={dt}_substeps={substeps}.mp4"
         cam.stop_recording(save_to_filename=video_filename, fps=actual_fps)
-        gs.logger.info(f"Saved video to {video_filename}")
+        ezsim.logger.info(f"Saved video to {video_filename}")
 
 
 if __name__ == "__main__":

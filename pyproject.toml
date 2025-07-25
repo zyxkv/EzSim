@@ -3,9 +3,9 @@ requires = ["setuptools", "wheel", "cython>=3.0.0", "numpy>=1.26.4"]
 build-backend = "setuptools.build_meta"
 
 [project]
-# name = "genesis-world-nightly"
+# name = "ezsim-nightly"
 # version = "0.0.3"
-name = "genesis-world"
+name = "ezsim"
 version = "0.2.1"
 description = "A universal and generative physics engine"
 readme = "README.md"
@@ -65,10 +65,10 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["genesis", "genesis.*"]
+include = ["ezsim", "ezsim.*"]
 
 [tool.setuptools.package-data]
-genesis = [
+ezsim = [
     "assets/*",
     "ext/pyrender/fonts/*",
     "ext/pyrender/shaders/*",
@@ -79,7 +79,7 @@ genesis = [
 line-length = 120
 force-exclude = '''
 /(
-    genesis/ext
+    ezsim/ext
 )/
 '''
 
@@ -108,7 +108,7 @@ markers = [
 log_cli_level = "WARNING"
 
 [project.scripts]
-gs = "genesis._main:main"
+gs = "ezsim._main:main"
 
 [project.optional-dependencies]
 dev = [

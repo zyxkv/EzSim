@@ -11,13 +11,13 @@ import pytest
 import torch
 import trimesh
 
-import genesis as gs
-import genesis.utils.geom as gu
-from genesis.utils.misc import get_assets_dir, tensor_to_array
+import ezsim
+import ezsim.utils.geom as gu
+from ezsim.utils.misc import get_assets_dir, tensor_to_array
 
 from .utils import (
     assert_allclose,
-    build_genesis_sim,
+    build_ezsim_sim,
     build_mujoco_sim,
     check_mujoco_data_consistency,
     check_mujoco_model_consistency,
@@ -309,27 +309,27 @@ def double_ball_pendulum():
 
 @pytest.mark.required
 @pytest.mark.parametrize("model_name", ["box_plan"])
-@pytest.mark.parametrize("gs_solver", [gs.constraint_solver.CG, gs.constraint_solver.Newton])
-@pytest.mark.parametrize("gs_integrator", [gs.integrator.implicitfast, gs.integrator.Euler])
-@pytest.mark.parametrize("backend", [gs.cpu])
-def test_box_plane_dynamics(gs_sim, mj_sim, tol):
+@pytest.mark.parametrize("ezsim_solver", [ezsim.constraint_solver.CG, ezsim.constraint_solver.Newton])
+@pytest.mark.parametrize("ezsim_integrator", [ezsim.integrator.implicitfast, ezsim.integrator.Euler])
+@pytest.mark.parametrize("backend", [ezsim.cpu])
+def test_box_plane_dynamics(ezsim_sim, mj_sim, tol):
     cube_pos = np.array([0.0, 0.0, 0.6])
     cube_quat = np.random.rand(4)
     cube_quat /= np.linalg.norm(cube_quat)
     qpos = np.concatenate((cube_pos, cube_quat))
     qvel = np.random.rand(6) * 0.2
-    simulate_and_check_mujoco_consistency(gs_sim, mj_sim, qpos, qvel, num_steps=150, tol=tol)
+    simulate_and_check_mujoco_consistency(ezsim_sim, mj_sim, qpos, qvel, num_steps=150, tol=tol)
 
 
 @pytest.mark.required
 @pytest.mark.adjacent_collision(True)
 @pytest.mark.parametrize("model_name", ["chain_capsule_hinge_mesh"])  # FIXME: , "chain_capsule_hinge_capsule"])
-@pytest.mark.parametrize("gs_solver", [gs.constraint_solver.CG, gs.constraint_solver.Newton])
-@pytest.mark.parametrize("gs_integrator", [gs.integrator.implicitfast, gs.integrator.Euler])
+@pytest.mark.parametrize("ezsim_solver", [ezsim.constraint_solver.CG, ezsim.constraint_solver.Newton])
+@pytest.mark.parametrize("ezsim_integrator", [ezsim.integrator.implicitfast, ezsim.integrator.Euler])
 @pytest.mark.parametrize("gjk_collision", [True, False])
-@pytest.mark.parametrize("backend", [gs.cpu])
-def test_simple_kinematic_chain(gs_sim, mj_sim, tol):
-    simulate_and_check_mujoco_consistency(gs_sim, mj_sim, num_steps=200, tol=tol)
+@pytest.mark.parametrize("backend", [ezsim.cpu])
+def test_simple_kinematic_chain(ezsim_sim, mj_sim, tol):
+    simulate_and_check_mujoco_consistency(ezsim_sim, mj_sim, num_steps=200, tol=tol)
 
 
 # Disable Genesis multi-contact because it relies on discretized geometry unlike Mujoco
@@ -337,93 +337,93 @@ def test_simple_kinematic_chain(gs_sim, mj_sim, tol):
 @pytest.mark.multi_contact(False)
 @pytest.mark.parametrize("xml_path", ["xml/walker.xml"])
 @pytest.mark.parametrize(
-    "gs_solver",
+    "ezsim_solver",
     [
-        gs.constraint_solver.CG,
-        # gs.constraint_solver.Newton,  # FIXME: This test is not passing because collision detection is too sensitive
+        ezsim.constraint_solver.CG,
+        # ezsim.constraint_solver.Newton,  # FIXME: This test is not passing because collision detection is too sensitive
     ],
 )
-@pytest.mark.parametrize("gs_integrator", [gs.integrator.implicitfast, gs.integrator.Euler])
+@pytest.mark.parametrize("ezsim_integrator", [ezsim.integrator.implicitfast, ezsim.integrator.Euler])
 @pytest.mark.parametrize("gjk_collision", [True, False])
-@pytest.mark.parametrize("backend", [gs.cpu])
-def test_walker(gs_sim, mj_sim, gjk_collision, tol):
+@pytest.mark.parametrize("backend", [ezsim.cpu])
+def test_walker(ezsim_sim, mj_sim, gjk_collision, tol):
     # Force numpy seed because this test is very sensitive to the initial condition
     np.random.seed(0)
-    (gs_robot,) = gs_sim.entities
-    qpos = np.zeros((gs_robot.n_qs,))
+    (ezsim_robot,) = ezsim_sim.entities
+    qpos = np.zeros((ezsim_robot.n_qs,))
     qpos[2] += 0.5
-    qvel = np.random.rand(gs_robot.n_dofs) * 0.2
+    qvel = np.random.rand(ezsim_robot.n_dofs) * 0.2
 
     # Cannot simulate any longer because collision detection is very sensitive
-    simulate_and_check_mujoco_consistency(gs_sim, mj_sim, qpos, qvel, num_steps=90, tol=tol)
+    simulate_and_check_mujoco_consistency(ezsim_sim, mj_sim, qpos, qvel, num_steps=90, tol=tol)
 
 
 @pytest.mark.parametrize("model_name", ["mimic_hinges"])
-@pytest.mark.parametrize("gs_solver", [gs.constraint_solver.CG, gs.constraint_solver.Newton])
-@pytest.mark.parametrize("gs_integrator", [gs.integrator.implicitfast, gs.integrator.Euler])
-@pytest.mark.parametrize("backend", [gs.cpu])
-def test_equality_joint(gs_sim, mj_sim, gs_solver):
+@pytest.mark.parametrize("ezsim_solver", [ezsim.constraint_solver.CG, ezsim.constraint_solver.Newton])
+@pytest.mark.parametrize("ezsim_integrator", [ezsim.integrator.implicitfast, ezsim.integrator.Euler])
+@pytest.mark.parametrize("backend", [ezsim.cpu])
+def test_equality_joint(ezsim_sim, mj_sim, ezsim_solver):
     # there is an equality constraint
-    assert gs_sim.rigid_solver.n_equalities == 1
+    assert ezsim_sim.rigid_solver.n_equalities == 1
 
     qpos = np.array((0.0, -1.0))
     qvel = np.array((1.0, -0.3))
     # Note that it is impossible to be more accurate than this because of the inherent stiffness of the problem.
-    tol = 2e-8 if gs_solver == gs.constraint_solver.Newton else 1e-8
-    simulate_and_check_mujoco_consistency(gs_sim, mj_sim, qpos, qvel, num_steps=300, tol=tol)
+    tol = 2e-8 if ezsim_solver == ezsim.constraint_solver.Newton else 1e-8
+    simulate_and_check_mujoco_consistency(ezsim_sim, mj_sim, qpos, qvel, num_steps=300, tol=tol)
 
     # check if the two joints are equal
-    gs_qpos = gs_sim.rigid_solver.qpos.to_numpy()[:, 0]
-    assert_allclose(gs_qpos[0], gs_qpos[1], tol=tol)
+    ezsim_qpos = ezsim_sim.rigid_solver.qpos.to_numpy()[:, 0]
+    assert_allclose(ezsim_qpos[0], ezsim_qpos[1], tol=tol)
 
 
 @pytest.mark.parametrize("xml_path", ["xml/four_bar_linkage_weld.xml"])
-@pytest.mark.parametrize("gs_solver", [gs.constraint_solver.CG, gs.constraint_solver.Newton])
-@pytest.mark.parametrize("gs_integrator", [gs.integrator.implicitfast, gs.integrator.Euler])
-@pytest.mark.parametrize("backend", [gs.cpu])
-def test_equality_weld(gs_sim, mj_sim, gs_solver):
+@pytest.mark.parametrize("ezsim_solver", [ezsim.constraint_solver.CG, ezsim.constraint_solver.Newton])
+@pytest.mark.parametrize("ezsim_integrator", [ezsim.integrator.implicitfast, ezsim.integrator.Euler])
+@pytest.mark.parametrize("backend", [ezsim.cpu])
+def test_equality_weld(ezsim_sim, mj_sim, ezsim_solver):
     # Must disable self-collision caused by closing the kinematic chain (adjacent link filtering is not enough)
-    gs_sim.rigid_solver._enable_collision = False
+    ezsim_sim.rigid_solver._enable_collision = False
     mj_sim.model.opt.disableflags |= mujoco.mjtDisableBit.mjDSBL_CONTACT
 
     # Must increase sol params to improve numerical stability
     sol_params = gu.default_solver_params()
     sol_params[0] = 0.02
-    for entity in gs_sim.entities:
+    for entity in ezsim_sim.entities:
         for equality in entity.equalities:
             equality.set_sol_params(sol_params)
     mj_sim.model.eq_solref[:, 0] = sol_params[0]
 
-    assert gs_sim.rigid_solver.n_equalities == 1
+    assert ezsim_sim.rigid_solver.n_equalities == 1
     np.random.seed(0)
-    qpos = np.random.rand(gs_sim.rigid_solver.n_qs) * 0.1
+    qpos = np.random.rand(ezsim_sim.rigid_solver.n_qs) * 0.1
 
     # Note that it is impossible to be more accurate than this because of the inherent stiffness of the problem.
     # The pose difference between Mujoco and Genesis (resulting from using quaternion instead of rotation matrices to
     # apply transform internally) is about 1e-15. This is fine and not surprising as it is consistent with machine
     # precision. These rounding errors are then amplified by 1e8 when computing the forces resulting from the kinematic
     # constraints. The constraints could be made softer by changing its impede parameters.
-    tol = 1e-7 if gs_solver == gs.constraint_solver.Newton else 2e-5
-    simulate_and_check_mujoco_consistency(gs_sim, mj_sim, qpos, num_steps=300, tol=tol)
+    tol = 1e-7 if ezsim_solver == ezsim.constraint_solver.Newton else 2e-5
+    simulate_and_check_mujoco_consistency(ezsim_sim, mj_sim, qpos, num_steps=300, tol=tol)
 
 
 def test_dynamic_weld(show_viewer, tol):
-    scene = gs.Scene(
+    scene = ezsim.Scene(
         show_viewer=show_viewer,
         show_FPS=False,
     )
     plane = scene.add_entity(
-        gs.morphs.Plane(),
+        ezsim.morphs.Plane(),
     )
     cube = scene.add_entity(
-        gs.morphs.Box(
+        ezsim.morphs.Box(
             size=(0.04, 0.04, 0.04),
             pos=(0.65, 0.0, 0.02),
         ),
-        surface=gs.surfaces.Plastic(color=(1, 0, 0)),
+        surface=ezsim.surfaces.Plastic(color=(1, 0, 0)),
     )
     robot = scene.add_entity(
-        gs.morphs.MJCF(
+        ezsim.morphs.MJCF(
             file="xml/universal_robots_ur5e/ur5e.xml",
         ),
     )
@@ -432,17 +432,17 @@ def test_dynamic_weld(show_viewer, tol):
     end_effector = robot.get_link("ee_virtual_link")
 
     # Compute up and down robot configurations
-    ee_pos_up = np.array((0.65, 0.0, 0.5), dtype=gs.np_float)
-    ee_pos_down = np.array((0.65, 0.0, 0.15), dtype=gs.np_float)
+    ee_pos_up = np.array((0.65, 0.0, 0.5), dtype=ezsim.np_float)
+    ee_pos_down = np.array((0.65, 0.0, 0.15), dtype=ezsim.np_float)
     qpos_up = robot.inverse_kinematics(
         link=end_effector,
         pos=np.tile(ee_pos_up, (4, 1)),
-        quat=np.tile(np.array((0.0, 1.0, 0.0, 0.0), dtype=gs.np_float), (4, 1)),
+        quat=np.tile(np.array((0.0, 1.0, 0.0, 0.0), dtype=ezsim.np_float), (4, 1)),
     )
     qpos_down = robot.inverse_kinematics(
         link=end_effector,
         pos=np.tile(ee_pos_down, (4, 1)),
-        quat=np.tile(np.array((0.0, 1.0, 0.0, 0.0), dtype=gs.np_float), (4, 1)),
+        quat=np.tile(np.array((0.0, 1.0, 0.0, 0.0), dtype=ezsim.np_float), (4, 1)),
     )
 
     # move to pre-grasp pose
@@ -477,39 +477,39 @@ def test_dynamic_weld(show_viewer, tol):
 
 @pytest.mark.required
 @pytest.mark.parametrize("xml_path", ["xml/one_ball_joint.xml"])
-@pytest.mark.parametrize("gs_solver", [gs.constraint_solver.CG, gs.constraint_solver.Newton])
-@pytest.mark.parametrize("gs_integrator", [gs.integrator.implicitfast, gs.integrator.Euler])
-@pytest.mark.parametrize("backend", [gs.cpu])
-def test_one_ball_joint(gs_sim, mj_sim, tol):
+@pytest.mark.parametrize("ezsim_solver", [ezsim.constraint_solver.CG, ezsim.constraint_solver.Newton])
+@pytest.mark.parametrize("ezsim_integrator", [ezsim.integrator.implicitfast, ezsim.integrator.Euler])
+@pytest.mark.parametrize("backend", [ezsim.cpu])
+def test_one_ball_joint(ezsim_sim, mj_sim, tol):
     # FIXME: Mujoco is detecting collision for some reason...
     mj_sim.model.opt.disableflags |= mujoco.mjtDisableBit.mjDSBL_CONTACT
 
-    simulate_and_check_mujoco_consistency(gs_sim, mj_sim, num_steps=600, tol=tol)
+    simulate_and_check_mujoco_consistency(ezsim_sim, mj_sim, num_steps=600, tol=tol)
 
 
 @pytest.mark.required
 @pytest.mark.parametrize("xml_path", ["xml/rope_ball.xml", "xml/rope_hinge.xml"])
-@pytest.mark.parametrize("gs_solver", [gs.constraint_solver.CG, gs.constraint_solver.Newton])
-@pytest.mark.parametrize("gs_integrator", [gs.integrator.implicitfast, gs.integrator.Euler])
+@pytest.mark.parametrize("ezsim_solver", [ezsim.constraint_solver.CG, ezsim.constraint_solver.Newton])
+@pytest.mark.parametrize("ezsim_integrator", [ezsim.integrator.implicitfast, ezsim.integrator.Euler])
 @pytest.mark.parametrize("gjk_collision", [True, False])
-@pytest.mark.parametrize("backend", [gs.cpu])
-def test_rope_ball(gs_sim, mj_sim, gs_solver, tol):
+@pytest.mark.parametrize("backend", [ezsim.cpu])
+def test_rope_ball(ezsim_sim, mj_sim, ezsim_solver, tol):
     # Make sure it is possible to set the configuration vector without failure
-    gs_sim.rigid_solver.set_dofs_position(gs_sim.rigid_solver.get_dofs_position())
+    ezsim_sim.rigid_solver.set_dofs_position(ezsim_sim.rigid_solver.get_dofs_position())
 
-    check_mujoco_model_consistency(gs_sim, mj_sim, tol=tol)
-    simulate_and_check_mujoco_consistency(gs_sim, mj_sim, num_steps=300, tol=5e-9)
+    check_mujoco_model_consistency(ezsim_sim, mj_sim, tol=tol)
+    simulate_and_check_mujoco_consistency(ezsim_sim, mj_sim, num_steps=300, tol=5e-9)
 
 
 @pytest.mark.required
 @pytest.mark.multi_contact(False)
-@pytest.mark.parametrize("gs_solver", [gs.constraint_solver.CG])
-@pytest.mark.parametrize("gs_integrator", [gs.integrator.implicitfast])
+@pytest.mark.parametrize("ezsim_solver", [ezsim.constraint_solver.CG])
+@pytest.mark.parametrize("ezsim_integrator", [ezsim.integrator.implicitfast])
 @pytest.mark.parametrize("gjk_collision", [True, False])
-@pytest.mark.parametrize("backend", [gs.cpu])
+@pytest.mark.parametrize("backend", [ezsim.cpu])
 def test_urdf_rope(
-    gs_solver,
-    gs_integrator,
+    ezsim_solver,
+    ezsim_integrator,
     merge_fixed_links,
     multi_contact,
     mujoco_compatibility,
@@ -523,18 +523,18 @@ def test_urdf_rope(
 
     mj_sim = build_mujoco_sim(
         xml_path,
-        gs_solver,
-        gs_integrator,
+        ezsim_solver,
+        ezsim_integrator,
         merge_fixed_links,
         multi_contact,
         adjacent_collision,
         dof_damping,
         gjk_collision,
     )
-    gs_sim = build_genesis_sim(
+    ezsim_sim = build_ezsim_sim(
         xml_path,
-        gs_solver,
-        gs_integrator,
+        ezsim_solver,
+        ezsim_integrator,
         merge_fixed_links,
         multi_contact,
         mujoco_compatibility,
@@ -547,62 +547,62 @@ def test_urdf_rope(
     # Must increase sol params to improve numerical stability
     sol_params = gu.default_solver_params()
     sol_params[0] = 0.02
-    gs_sim.rigid_solver.set_global_sol_params(sol_params)
+    ezsim_sim.rigid_solver.set_global_sol_params(sol_params)
     mj_sim.model.jnt_solref[:, 0] = sol_params[0]
     mj_sim.model.geom_solref[:, 0] = sol_params[0]
     mj_sim.model.eq_solref[:, 0] = sol_params[0]
 
     # FIXME: Tolerance must be very large due to small masses and compounding of errors over long kinematic chains
-    simulate_and_check_mujoco_consistency(gs_sim, mj_sim, num_steps=300, tol=5e-5)
+    simulate_and_check_mujoco_consistency(ezsim_sim, mj_sim, num_steps=300, tol=5e-5)
 
 
 @pytest.mark.mujoco_compatibility(True)
 @pytest.mark.multi_contact(False)  # FIXME: Mujoco has errors with multi-contact, so this test is disabled
 @pytest.mark.parametrize("xml_path", ["xml/tet_tet.xml", "xml/tet_ball.xml", "xml/tet_capsule.xml"])
-@pytest.mark.parametrize("gs_solver", [gs.constraint_solver.CG, gs.constraint_solver.Newton])
-@pytest.mark.parametrize("gs_integrator", [gs.integrator.implicitfast, gs.integrator.Euler])
+@pytest.mark.parametrize("ezsim_solver", [ezsim.constraint_solver.CG, ezsim.constraint_solver.Newton])
+@pytest.mark.parametrize("ezsim_integrator", [ezsim.integrator.implicitfast, ezsim.integrator.Euler])
 @pytest.mark.parametrize("gjk_collision", [True])
-@pytest.mark.parametrize("backend", [gs.cpu])
-def test_tet_primitive_shapes(gs_sim, mj_sim, gs_solver, xml_path, tol):
+@pytest.mark.parametrize("backend", [ezsim.cpu])
+def test_tet_primitive_shapes(ezsim_sim, mj_sim, ezsim_solver, xml_path, tol):
     # Make sure it is possible to set the configuration vector without failure
-    gs_sim.rigid_solver.set_dofs_position(gs_sim.rigid_solver.get_dofs_position())
+    ezsim_sim.rigid_solver.set_dofs_position(ezsim_sim.rigid_solver.get_dofs_position())
 
-    check_mujoco_model_consistency(gs_sim, mj_sim, tol=tol)
+    check_mujoco_model_consistency(ezsim_sim, mj_sim, tol=tol)
     # FIXME: Because of very small numerical error, error could be this large even if there is no logical error
     tol = 1e-6 if xml_path == "xml/tet_tet.xml" else 2e-8
-    simulate_and_check_mujoco_consistency(gs_sim, mj_sim, num_steps=1000, tol=tol)
+    simulate_and_check_mujoco_consistency(ezsim_sim, mj_sim, num_steps=1000, tol=tol)
 
 
 @pytest.mark.required
 @pytest.mark.parametrize("model_name", ["two_aligned_hinges"])
-@pytest.mark.parametrize("gs_solver", [gs.constraint_solver.CG])
-@pytest.mark.parametrize("gs_integrator", [gs.integrator.Euler])
-def test_link_velocity(gs_sim, tol):
+@pytest.mark.parametrize("ezsim_solver", [ezsim.constraint_solver.CG])
+@pytest.mark.parametrize("ezsim_integrator", [ezsim.integrator.Euler])
+def test_link_velocity(ezsim_sim, tol):
     # Check the velocity for a few "easy" special cases
-    init_simulators(gs_sim, qvel=np.array([0.0, 1.0]))
-    assert_allclose(gs_sim.rigid_solver.links_state.cd_vel.to_numpy(), 0, tol=tol)
+    init_simulators(ezsim_sim, qvel=np.array([0.0, 1.0]))
+    assert_allclose(ezsim_sim.rigid_solver.links_state.cd_vel.to_numpy(), 0, tol=tol)
 
-    init_simulators(gs_sim, qvel=np.array([1.0, 0.0]))
-    cvel_0, cvel_1 = gs_sim.rigid_solver.links_state.cd_vel.to_numpy()[:, 0]
+    init_simulators(ezsim_sim, qvel=np.array([1.0, 0.0]))
+    cvel_0, cvel_1 = ezsim_sim.rigid_solver.links_state.cd_vel.to_numpy()[:, 0]
     assert_allclose(cvel_0, np.array([0.0, 0.5, 0.0]), tol=tol)
     assert_allclose(cvel_1, np.array([0.0, 0.5, 0.0]), tol=tol)
 
-    init_simulators(gs_sim, qpos=np.array([0.0, np.pi / 2.0]), qvel=np.array([0.0, 1.2]))
-    COM = gs_sim.rigid_solver.links_state.COM[0, 0]
+    init_simulators(ezsim_sim, qpos=np.array([0.0, np.pi / 2.0]), qvel=np.array([0.0, 1.2]))
+    COM = ezsim_sim.rigid_solver.links_state.COM[0, 0]
     assert_allclose(COM, np.array([0.375, 0.125, 0.0]), tol=tol)
-    xanchor = gs_sim.rigid_solver.joints_state.xanchor[1, 0]
+    xanchor = ezsim_sim.rigid_solver.joints_state.xanchor[1, 0]
     assert_allclose(xanchor, np.array([0.5, 0.0, 0.0]), tol=tol)
-    cvel_0, cvel_1 = gs_sim.rigid_solver.links_state.cd_vel.to_numpy()[:, 0]
+    cvel_0, cvel_1 = ezsim_sim.rigid_solver.links_state.cd_vel.to_numpy()[:, 0]
     assert_allclose(cvel_0, 0, tol=tol)
     assert_allclose(cvel_1, np.array([-1.2 * (0.125 - 0.0), 1.2 * (0.375 - 0.5), 0.0]), tol=tol)
 
     # Check that the velocity is valid for a random configuration
-    init_simulators(gs_sim, qpos=np.array([-0.7, 0.2]), qvel=np.array([3.0, 13.0]))
-    xanchor = gs_sim.rigid_solver.joints_state.xanchor[1, 0]
-    theta_0, theta_1 = gs_sim.rigid_solver.qpos.to_numpy()[:, 0]
+    init_simulators(ezsim_sim, qpos=np.array([-0.7, 0.2]), qvel=np.array([3.0, 13.0]))
+    xanchor = ezsim_sim.rigid_solver.joints_state.xanchor[1, 0]
+    theta_0, theta_1 = ezsim_sim.rigid_solver.qpos.to_numpy()[:, 0]
     assert_allclose(xanchor[0], 0.5 * np.cos(theta_0), tol=tol)
     assert_allclose(xanchor[1], 0.5 * np.sin(theta_0), tol=tol)
-    COM = gs_sim.rigid_solver.links_state.COM[0, 0]
+    COM = ezsim_sim.rigid_solver.links_state.COM[0, 0]
     COM_0 = np.array([0.25 * np.cos(theta_0), 0.25 * np.sin(theta_0), 0.0])
     COM_1 = np.array(
         [
@@ -613,8 +613,8 @@ def test_link_velocity(gs_sim, tol):
     )
     assert_allclose(COM, 0.5 * (COM_0 + COM_1), tol=tol)
 
-    cvel_0, cvel_1 = gs_sim.rigid_solver.links_state.cd_vel.to_numpy()[:, 0]
-    omega_0, omega_1 = gs_sim.rigid_solver.links_state.cd_ang.to_numpy()[:, 0, 2]
+    cvel_0, cvel_1 = ezsim_sim.rigid_solver.links_state.cd_vel.to_numpy()[:, 0]
+    omega_0, omega_1 = ezsim_sim.rigid_solver.links_state.cd_ang.to_numpy()[:, 0, 2]
     assert_allclose(omega_0, 3.0, tol=tol)
     assert_allclose(omega_1 - omega_0, 13.0, tol=tol)
     cvel_0_ = omega_0 * np.array([-COM[1], COM[0], 0.0])
@@ -622,14 +622,14 @@ def test_link_velocity(gs_sim, tol):
     cvel_1_ = cvel_0 + (omega_1 - omega_0) * np.array([xanchor[1] - COM[1], COM[0] - xanchor[0], 0.0])
     assert_allclose(cvel_1, cvel_1_, tol=tol)
 
-    xpos_0, xpos_1 = gs_sim.rigid_solver.links_state.pos.to_numpy()[:, 0]
+    xpos_0, xpos_1 = ezsim_sim.rigid_solver.links_state.pos.to_numpy()[:, 0]
     assert_allclose(xpos_0, 0.0, tol=tol)
     assert_allclose(xpos_1, xanchor, tol=tol)
-    xvel_0, xvel_1 = gs_sim.rigid_solver.get_links_vel()
+    xvel_0, xvel_1 = ezsim_sim.rigid_solver.get_links_vel()
     assert_allclose(xvel_0, 0.0, tol=tol)
     xvel_1_ = omega_0 * np.array([-xpos_1[1], xpos_1[0], 0.0])
     assert_allclose(xvel_1, xvel_1_, tol=tol)
-    civel_0, civel_1 = gs_sim.rigid_solver.get_links_vel(ref="link_com")
+    civel_0, civel_1 = ezsim_sim.rigid_solver.get_links_vel(ref="link_com")
     civel_0_ = omega_0 * np.array([-COM_0[1], COM_0[0], 0.0])
     assert_allclose(civel_0, civel_0_, tol=tol)
     civel_1_ = omega_0 * np.array([-COM_1[1], COM_1[0], 0.0]) + (omega_1 - omega_0) * np.array(
@@ -641,11 +641,11 @@ def test_link_velocity(gs_sim, tol):
 @pytest.mark.required
 @pytest.mark.merge_fixed_links(False)
 @pytest.mark.parametrize("model_name", ["pendulum"])
-@pytest.mark.parametrize("gs_solver", [gs.constraint_solver.CG])
-@pytest.mark.parametrize("gs_integrator", [gs.integrator.Euler])
-def test_pendulum_links_acc(gs_sim, tol):
-    pendulum = gs_sim.entities[0]
-    g = gs_sim.rigid_solver._gravity[0][2]
+@pytest.mark.parametrize("ezsim_solver", [ezsim.constraint_solver.CG])
+@pytest.mark.parametrize("ezsim_integrator", [ezsim.integrator.Euler])
+def test_pendulum_links_acc(ezsim_sim, tol):
+    pendulum = ezsim_sim.entities[0]
+    g = ezsim_sim.rigid_solver._gravity[0][2]
 
     # Make sure that the linear and angular acceleration matches expectation
     theta = np.random.rand()
@@ -654,20 +654,20 @@ def test_pendulum_links_acc(gs_sim, tol):
     pendulum.set_dofs_velocity([theta_dot])
     for _ in range(100):
         # Backup state before integration
-        theta = float(gs_sim.rigid_solver.qpos.to_numpy())
-        theta_dot = float(gs_sim.rigid_solver.dofs_state.vel.to_numpy())
+        theta = float(ezsim_sim.rigid_solver.qpos.to_numpy())
+        theta_dot = float(ezsim_sim.rigid_solver.dofs_state.vel.to_numpy())
 
         # Run one simulation step
-        gs_sim.scene.step()
+        ezsim_sim.scene.step()
 
         # Angular acceleration:
         # * acc_ang_x = - sin(theta) * g
-        acc_ang = gs_sim.rigid_solver.get_links_acc_ang()
+        acc_ang = ezsim_sim.rigid_solver.get_links_acc_ang()
         assert_allclose(acc_ang[0], 0, tol=tol)
         assert_allclose(acc_ang[2], np.array([-np.sin(theta) * g, 0.0, 0.0]), tol=tol)
         # Linear spatial acceleration:
         # * acc_spatial_lin_y = sin(theta) * g
-        acc_spatial_lin_world = gs_sim.rigid_solver.links_state.cacc_lin.to_numpy()
+        acc_spatial_lin_world = ezsim_sim.rigid_solver.links_state.cacc_lin.to_numpy()
         assert_allclose(acc_spatial_lin_world[0], 0, tol=tol)
         R = np.array(
             [
@@ -681,13 +681,13 @@ def test_pendulum_links_acc(gs_sim, tol):
         # Linear true acceleration:
         # * acc_classical_lin_y = sin(theta) * g (tangential angular acceleration effect)
         # * acc_classical_lin_z = - theta_dot ** 2  (radial centripedal effect)
-        acc_classical_lin_world = gs_sim.rigid_solver.get_links_acc(mimick_imu=False).cpu()
+        acc_classical_lin_world = ezsim_sim.rigid_solver.get_links_acc(mimick_imu=False).cpu()
         assert_allclose(acc_classical_lin_world[0], 0, tol=tol)
         acc_classical_lin_local = R @ acc_classical_lin_world[2].numpy()
         assert_allclose(acc_classical_lin_local, np.array([0.0, np.sin(theta) * g, -(theta_dot**2)]), tol=tol)
         # IMU accelerometer data:
         # * acc_classical_lin_z = - theta_dot ** 2 - cos(theta) * g
-        acc_imu = gs_sim.rigid_solver.get_links_acc(mimick_imu=True)[2]
+        acc_imu = ezsim_sim.rigid_solver.get_links_acc(mimick_imu=True)[2]
         assert_allclose(acc_imu, np.array([0.0, 0.0, -(theta_dot**2) - np.cos(theta) * g]), tol=tol)
 
     # Hold the pendulum straight using PD controller and check again
@@ -695,18 +695,18 @@ def test_pendulum_links_acc(gs_sim, tol):
     pendulum.set_dofs_kv([100.0])
     pendulum.control_dofs_position([0.5 * np.pi])
     for _ in range(400):
-        gs_sim.scene.step()
-    acc_classical_lin_world = gs_sim.rigid_solver.get_links_acc(mimick_imu=False)
+        ezsim_sim.scene.step()
+    acc_classical_lin_world = ezsim_sim.rigid_solver.get_links_acc(mimick_imu=False)
     assert_allclose(acc_classical_lin_world, 0, tol=tol)
 
 
 @pytest.mark.required
 @pytest.mark.merge_fixed_links(False)
 @pytest.mark.parametrize("model_name", ["double_pendulum"])
-@pytest.mark.parametrize("gs_solver", [gs.constraint_solver.CG])
-@pytest.mark.parametrize("gs_integrator", [gs.integrator.Euler])
-def test_double_pendulum_links_acc(gs_sim, tol):
-    robot = gs_sim.entities[0]
+@pytest.mark.parametrize("ezsim_solver", [ezsim.constraint_solver.CG])
+@pytest.mark.parametrize("ezsim_integrator", [ezsim.integrator.Euler])
+def test_double_pendulum_links_acc(ezsim_sim, tol):
+    robot = ezsim_sim.entities[0]
 
     # Make sure that the linear and angular acceleration matches expectation
     qpos = np.random.rand(2)
@@ -715,25 +715,25 @@ def test_double_pendulum_links_acc(gs_sim, tol):
     robot.set_dofs_velocity(qvel)
     for _ in range(100):
         # Backup state before integration
-        theta = gs_sim.rigid_solver.qpos.to_numpy()[:, 0]
-        theta_dot = gs_sim.rigid_solver.dofs_state.vel.to_numpy()[:, 0]
+        theta = ezsim_sim.rigid_solver.qpos.to_numpy()[:, 0]
+        theta_dot = ezsim_sim.rigid_solver.dofs_state.vel.to_numpy()[:, 0]
 
         # Run one simulation step
-        gs_sim.scene.step()
+        ezsim_sim.scene.step()
 
         # Backup acceleration before integration
-        theta_ddot = gs_sim.rigid_solver.dofs_state.acc.to_numpy()[:, 0]
+        theta_ddot = ezsim_sim.rigid_solver.dofs_state.acc.to_numpy()[:, 0]
 
         # Angular acceleration
-        acc_ang = tensor_to_array(gs_sim.rigid_solver.get_links_acc_ang())
+        acc_ang = tensor_to_array(ezsim_sim.rigid_solver.get_links_acc_ang())
         assert_allclose(acc_ang[0], 0, tol=tol)
         assert_allclose(acc_ang[1], [theta_ddot[0], 0.0, 0.0], tol=tol)
         assert_allclose(acc_ang[-1], [theta_ddot[0] + theta_ddot[1], 0.0, 0.0], tol=tol)
 
         # Linear spatial acceleration
-        cacc_spatial_lin_world = gs_sim.rigid_solver.links_state.cacc_lin.to_numpy()[[0, 2, 4], 0]
-        com = gs_sim.rigid_solver.links_state.COM.to_numpy()[-1, 0]
-        pos = gs_sim.rigid_solver.links_state.pos.to_numpy()[[0, 2, 4], 0]
+        cacc_spatial_lin_world = ezsim_sim.rigid_solver.links_state.cacc_lin.to_numpy()[[0, 2, 4], 0]
+        com = ezsim_sim.rigid_solver.links_state.COM.to_numpy()[-1, 0]
+        pos = ezsim_sim.rigid_solver.links_state.pos.to_numpy()[[0, 2, 4], 0]
         assert_allclose(cacc_spatial_lin_world[1], np.cross(acc_ang[2], com), tol=tol)
         acc_spatial_lin_world = cacc_spatial_lin_world + np.cross(acc_ang[[0, 2, 4]], pos - com)
         assert_allclose(acc_spatial_lin_world[0], 0, tol=tol)
@@ -755,7 +755,7 @@ def test_double_pendulum_links_acc(gs_sim, tol):
         )
 
         # Linear true acceleration
-        acc_classical_lin_world = tensor_to_array(gs_sim.rigid_solver.get_links_acc(mimick_imu=False)[[0, 2, 4]])
+        acc_classical_lin_world = tensor_to_array(ezsim_sim.rigid_solver.get_links_acc(mimick_imu=False)[[0, 2, 4]])
         assert_allclose(acc_classical_lin_world[0], 0, tol=tol)
         acc_classical_lin_local = np.matmul(np.moveaxis(R, 2, 0), acc_classical_lin_world[1:, :, None])[..., 0]
         assert_allclose(acc_classical_lin_local[0], np.array([0.0, -theta_ddot[0], -theta_dot[0] ** 2]), tol=tol)
@@ -770,17 +770,17 @@ def test_double_pendulum_links_acc(gs_sim, tol):
     robot.set_dofs_kv([200.0, 150.0])
     robot.control_dofs_position([0.5 * np.pi, 0.0])
     for _ in range(900):
-        gs_sim.scene.step()
-    acc_classical_lin_world = gs_sim.rigid_solver.get_links_acc(mimick_imu=False)
+        ezsim_sim.scene.step()
+    acc_classical_lin_world = ezsim_sim.rigid_solver.get_links_acc(mimick_imu=False)
     assert_allclose(acc_classical_lin_world, 0, tol=tol)
 
 
 @pytest.mark.parametrize("model_name", ["box_box"])
-@pytest.mark.parametrize("gs_solver", [gs.constraint_solver.CG, gs.constraint_solver.Newton])
-@pytest.mark.parametrize("gs_integrator", [gs.integrator.implicitfast, gs.integrator.Euler])
-@pytest.mark.parametrize("backend", [gs.cpu, gs.gpu])
-def test_box_box_dynamics(gs_sim):
-    (gs_robot,) = gs_sim.entities
+@pytest.mark.parametrize("ezsim_solver", [ezsim.constraint_solver.CG, ezsim.constraint_solver.Newton])
+@pytest.mark.parametrize("ezsim_integrator", [ezsim.integrator.implicitfast, ezsim.integrator.Euler])
+@pytest.mark.parametrize("backend", [ezsim.cpu, ezsim.gpu])
+def test_box_box_dynamics(ezsim_sim):
+    (ezsim_robot,) = ezsim_sim.entities
     for _ in range(20):
         cube1_pos = np.array([0.0, 0.0, 0.2])
         cube1_quat = np.array([1.0, 0.0, 0.0, 0.0])
@@ -788,14 +788,14 @@ def test_box_box_dynamics(gs_sim):
         cube2_quat = gu.xyz_to_quat(
             np.array([*(0.15 * np.random.rand(2)), np.pi * np.random.rand()]),
         )
-        init_simulators(gs_sim, qpos=np.concatenate((cube1_pos, cube1_quat, cube2_pos, cube2_quat)))
+        init_simulators(ezsim_sim, qpos=np.concatenate((cube1_pos, cube1_quat, cube2_pos, cube2_quat)))
         for i in range(110):
-            gs_sim.scene.step()
+            ezsim_sim.scene.step()
             if i > 100:
-                qvel = gs_robot.get_dofs_velocity()
+                qvel = ezsim_robot.get_dofs_velocity()
                 assert_allclose(qvel, 0, atol=1e-2)
 
-        qpos = gs_robot.get_dofs_position()
+        qpos = ezsim_robot.get_dofs_position()
         assert_allclose(qpos[8], 0.6, atol=2e-3)
 
 
@@ -808,16 +808,16 @@ def test_box_box_dynamics(gs_sim):
         (False, True, False),
     ],
 )
-@pytest.mark.parametrize("backend", [gs.cpu])  # TODO: Cannot afford GPU test for this one
+@pytest.mark.parametrize("backend", [ezsim.cpu])  # TODO: Cannot afford GPU test for this one
 def test_many_boxes_dynamics(box_box_detection, gjk_collision, dynamics, show_viewer):
-    scene = gs.Scene(
-        rigid_options=gs.options.RigidOptions(
+    scene = ezsim.Scene(
+        rigid_options=ezsim.options.RigidOptions(
             dt=0.01,
             box_box_detection=box_box_detection,
             max_collision_pairs=1000,
             use_gjk_collision=gjk_collision,
         ),
-        viewer_options=gs.options.ViewerOptions(
+        viewer_options=ezsim.options.ViewerOptions(
             camera_pos=(10, 10, 10),
             camera_lookat=(0.0, 0.0, 0.0),
             camera_fov=40,
@@ -825,16 +825,16 @@ def test_many_boxes_dynamics(box_box_detection, gjk_collision, dynamics, show_vi
         show_viewer=show_viewer,
     )
     plane = scene.add_entity(
-        gs.morphs.Plane(),
+        ezsim.morphs.Plane(),
     )
     for n in range(5**3):
         i, j, k = int(n / 25), int(n / 5) % 5, n % 5
         scene.add_entity(
-            gs.morphs.Box(
+            ezsim.morphs.Box(
                 pos=(i * 1.01, j * 1.01, k * 1.01 + 0.5),
                 size=(1.0, 1.0, 1.0),
             ),
-            surface=gs.surfaces.Default(
+            surface=ezsim.surfaces.Default(
                 color=(*np.random.rand(3), 0.7),
             ),
         )
@@ -865,26 +865,26 @@ def test_many_boxes_dynamics(box_box_detection, gjk_collision, dynamics, show_vi
 
 @pytest.mark.required
 @pytest.mark.parametrize("xml_path", ["xml/franka_emika_panda/panda.xml"])
-@pytest.mark.parametrize("gs_solver", [gs.constraint_solver.CG])
-@pytest.mark.parametrize("gs_integrator", [gs.integrator.Euler])
-@pytest.mark.parametrize("backend", [gs.cpu, gs.gpu])
-def test_robot_kinematics(gs_sim, mj_sim, tol):
+@pytest.mark.parametrize("ezsim_solver", [ezsim.constraint_solver.CG])
+@pytest.mark.parametrize("ezsim_integrator", [ezsim.integrator.Euler])
+@pytest.mark.parametrize("backend", [ezsim.cpu, ezsim.gpu])
+def test_robot_kinematics(ezsim_sim, mj_sim, tol):
     # Disable all constraints and actuation
     mj_sim.model.opt.disableflags |= mujoco.mjtDisableBit.mjDSBL_CONSTRAINT
     mj_sim.model.opt.disableflags |= mujoco.mjtDisableBit.mjDSBL_ACTUATION
-    gs_sim.rigid_solver.dofs_state.ctrl_mode.fill(gs.CTRL_MODE.FORCE)
-    gs_sim.rigid_solver._enable_collision = False
-    gs_sim.rigid_solver._enable_joint_limit = False
-    gs_sim.rigid_solver._disable_constraint = True
+    ezsim_sim.rigid_solver.dofs_state.ctrl_mode.fill(ezsim.CTRL_MODE.FORCE)
+    ezsim_sim.rigid_solver._enable_collision = False
+    ezsim_sim.rigid_solver._enable_joint_limit = False
+    ezsim_sim.rigid_solver._disable_constraint = True
 
-    check_mujoco_model_consistency(gs_sim, mj_sim, tol=tol)
+    check_mujoco_model_consistency(ezsim_sim, mj_sim, tol=tol)
 
-    (gs_robot,) = gs_sim.entities
-    dof_bounds = gs_sim.rigid_solver.dofs_info.limit.to_numpy()
+    (ezsim_robot,) = ezsim_sim.entities
+    dof_bounds = ezsim_sim.rigid_solver.dofs_info.limit.to_numpy()
     for _ in range(100):
-        qpos = dof_bounds[:, 0] + (dof_bounds[:, 1] - dof_bounds[:, 0]) * np.random.rand(gs_robot.n_qs)
-        init_simulators(gs_sim, mj_sim, qpos)
-        check_mujoco_data_consistency(gs_sim, mj_sim, tol=tol)
+        qpos = dof_bounds[:, 0] + (dof_bounds[:, 1] - dof_bounds[:, 0]) * np.random.rand(ezsim_robot.n_qs)
+        init_simulators(ezsim_sim, mj_sim, qpos)
+        check_mujoco_data_consistency(ezsim_sim, mj_sim, tol=tol)
 
 
 @pytest.mark.required
@@ -892,15 +892,15 @@ def test_robot_scaling(show_viewer, tol):
     mass = None
     links_pos = None
     for scale in (0.5, 1.0, 2.0):
-        scene = gs.Scene(
-            sim_options=gs.options.SimOptions(
+        scene = ezsim.Scene(
+            sim_options=ezsim.options.SimOptions(
                 gravity=(0, 0, -10.0),
             ),
             show_viewer=show_viewer,
             show_FPS=False,
         )
         robot = scene.add_entity(
-            gs.morphs.MJCF(
+            ezsim.morphs.MJCF(
                 file="xml/franka_emika_panda/panda.xml",
                 scale=scale,
             ),
@@ -928,8 +928,8 @@ def test_robot_scaling(show_viewer, tol):
 
 @pytest.mark.required
 def test_info_batching(tol):
-    scene = gs.Scene(
-        rigid_options=gs.options.RigidOptions(
+    scene = ezsim.Scene(
+        rigid_options=ezsim.options.RigidOptions(
             batch_dofs_info=True,
             batch_joints_info=True,
             batch_links_info=True,
@@ -938,10 +938,10 @@ def test_info_batching(tol):
         show_FPS=False,
     )
     plane = scene.add_entity(
-        gs.morphs.Plane(),
+        ezsim.morphs.Plane(),
     )
     robot = scene.add_entity(
-        gs.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
+        ezsim.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
     )
     scene.build(n_envs=2)
 
@@ -951,25 +951,25 @@ def test_info_batching(tol):
 
 
 @pytest.mark.required
-@pytest.mark.parametrize("backend", [gs.cpu])
+@pytest.mark.parametrize("backend", [ezsim.cpu])
 def test_pd_control(show_viewer):
-    scene = gs.Scene(
-        sim_options=gs.options.SimOptions(
+    scene = ezsim.Scene(
+        sim_options=ezsim.options.SimOptions(
             substeps=1,  # This is essential to be able to emulate native PD control
         ),
-        rigid_options=gs.options.RigidOptions(
+        rigid_options=ezsim.options.RigidOptions(
             batch_dofs_info=True,
             enable_self_collision=False,
-            integrator=gs.integrator.approximate_implicitfast,
+            integrator=ezsim.integrator.approximate_implicitfast,
         ),
-        # vis_options=gs.options.VisOptions(
+        # vis_options=ezsim.options.VisOptions(
         #     rendered_envs_idx=(1,),
         # ),
         show_viewer=show_viewer,
         show_FPS=False,
     )
     robot = scene.add_entity(
-        gs.morphs.MJCF(
+        ezsim.morphs.MJCF(
             file="xml/franka_emika_panda/panda.xml",
         ),
     )
@@ -977,18 +977,18 @@ def test_pd_control(show_viewer):
 
     MOTORS_POS_TARGET = torch.tensor(
         [0.6900, -0.1100, -0.7200, -2.7300, -0.1500, 2.6400, 0.8900, 0.0400, 0.0400],
-        dtype=gs.tc_float,
-        device=gs.device,
+        dtype=ezsim.tc_float,
+        device=ezsim.device,
     )
     MOTORS_KP = torch.tensor(
         [4500.0, 4500.0, 3500.0, 3500.0, 2000.0, 2000.0, 2000.0, 100.0, 100.0],
-        dtype=gs.tc_float,
-        device=gs.device,
+        dtype=ezsim.tc_float,
+        device=ezsim.device,
     )
     MOTORS_KD = torch.tensor(
         [450.0, 450.0, 350.0, 350.0, 200.0, 200.0, 200.0, 10.0, 10.0],
-        dtype=gs.tc_float,
-        device=gs.device,
+        dtype=ezsim.tc_float,
+        device=ezsim.device,
     )
 
     robot.set_dofs_kp(MOTORS_KP, envs_idx=0)
@@ -1019,19 +1019,19 @@ def test_set_root_pose(relative, show_viewer, tol):
     CUBE_POS_ZERO = (0.65, 0.0, 0.02)
     CUBE_EULER_ZERO = (0.0, 90.0, 0.0)
 
-    scene = gs.Scene(
+    scene = ezsim.Scene(
         show_viewer=show_viewer,
         show_FPS=False,
     )
     robot = scene.add_entity(
-        gs.morphs.MJCF(
+        ezsim.morphs.MJCF(
             file="xml/franka_emika_panda/panda.xml",
             pos=ROBOT_POS_ZERO,
             euler=ROBOT_EULER_ZERO,
         ),
     )
     cube = scene.add_entity(
-        gs.morphs.Box(
+        ezsim.morphs.Box(
             size=(0.04, 0.04, 0.04),
             pos=CUBE_POS_ZERO,
             euler=CUBE_EULER_ZERO,
@@ -1046,16 +1046,16 @@ def test_set_root_pose(relative, show_viewer, tol):
             (robot, ROBOT_POS_ZERO, ROBOT_EULER_ZERO),
             (cube, CUBE_POS_ZERO, CUBE_EULER_ZERO),
         ):
-            pos_zero = torch.tensor(pos_zero, device="cpu", dtype=gs.tc_float)
-            euler_zero = torch.deg2rad(torch.tensor(euler_zero, dtype=gs.tc_float))
+            pos_zero = torch.tensor(pos_zero, device="cpu", dtype=ezsim.tc_float)
+            euler_zero = torch.deg2rad(torch.tensor(euler_zero, dtype=ezsim.tc_float))
 
             assert_allclose(entity.get_pos(), pos_zero, tol=tol)
             euler = gu.quat_to_xyz(entity.get_quat(), rpy=True)
             assert_allclose(euler, euler_zero, tol=5e-4)
 
-            pos_delta = torch.rand(3, device="cpu", dtype=gs.tc_float)
+            pos_delta = torch.rand(3, device="cpu", dtype=ezsim.tc_float)
             entity.set_pos(pos_delta, relative=relative)
-            quat_delta = torch.rand(4, device="cpu", dtype=gs.tc_float)
+            quat_delta = torch.rand(4, device="cpu", dtype=ezsim.tc_float)
             quat_delta /= torch.linalg.norm(quat_delta)
             entity.set_quat(quat_delta, relative=relative)
 
@@ -1074,19 +1074,19 @@ def test_set_root_pose(relative, show_viewer, tol):
 @pytest.mark.required
 @pytest.mark.parametrize("n_envs, batched", [(0, False), (3, True)])
 def test_set_sol_params(n_envs, batched, tol):
-    scene = gs.Scene(
-        sim_options=gs.options.SimOptions(
+    scene = ezsim.Scene(
+        sim_options=ezsim.options.SimOptions(
             dt=0.01,
             substeps=1,
         ),
-        rigid_options=gs.options.RigidOptions(
+        rigid_options=ezsim.options.RigidOptions(
             batch_joints_info=batched,
         ),
         show_viewer=False,
         show_FPS=False,
     )
     robot = scene.add_entity(
-        gs.morphs.MJCF(
+        ezsim.morphs.MJCF(
             file="xml/franka_emika_panda/panda.xml",
             pos=(0.0, 0.4, 0.1),
             euler=(0, 0, 90),
@@ -1113,32 +1113,32 @@ def test_set_sol_params(n_envs, batched, tol):
 @pytest.mark.required
 @pytest.mark.mujoco_compatibility(False)
 @pytest.mark.parametrize("xml_path", ["xml/humanoid.xml"])
-@pytest.mark.parametrize("gs_solver", [gs.constraint_solver.Newton])
-@pytest.mark.parametrize("gs_integrator", [gs.integrator.Euler])
+@pytest.mark.parametrize("ezsim_solver", [ezsim.constraint_solver.Newton])
+@pytest.mark.parametrize("ezsim_integrator", [ezsim.integrator.Euler])
 @pytest.mark.parametrize("gjk_collision", [True])
-@pytest.mark.parametrize("backend", [gs.cpu, gs.gpu])
-def test_stickman(gs_sim, mj_sim, tol):
+@pytest.mark.parametrize("backend", [ezsim.cpu, ezsim.gpu])
+def test_stickman(ezsim_sim, mj_sim, tol):
     # Make sure that "static" model information are matching
-    check_mujoco_model_consistency(gs_sim, mj_sim, tol=tol)
+    check_mujoco_model_consistency(ezsim_sim, mj_sim, tol=tol)
 
     # Initialize the simulation
-    init_simulators(gs_sim)
+    init_simulators(ezsim_sim)
 
     # Run the simulation for a few steps
     qvel_norminf_all = []
     for i in range(6000):
-        gs_sim.scene.step()
+        ezsim_sim.scene.step()
         if i > 4000:
-            (gs_robot,) = gs_sim.entities
-            qvel = gs_robot.get_dofs_velocity()
+            (ezsim_robot,) = ezsim_sim.entities
+            qvel = ezsim_robot.get_dofs_velocity()
             qvel_norminf = torch.linalg.norm(qvel, ord=math.inf)
             qvel_norminf_all.append(qvel_norminf)
     np.testing.assert_array_less(torch.median(torch.stack(qvel_norminf_all, dim=0)).cpu(), 0.1)
 
-    qpos = gs_robot.get_dofs_position()
+    qpos = ezsim_robot.get_dofs_position()
     assert torch.linalg.norm(qpos[:2]) < 1.3
-    body_z = gs_sim.rigid_solver.links_state.pos.to_numpy()[:-1, 0, 2]
-    np.testing.assert_array_less(0, body_z + gs.EPS)
+    body_z = ezsim_sim.rigid_solver.links_state.pos.to_numpy()[:-1, 0, 2]
+    np.testing.assert_array_less(0, body_z + ezsim.EPS)
 
 
 def move_cube(use_suction, mode, show_viewer):
@@ -1155,25 +1155,25 @@ def move_cube(use_suction, mode, show_viewer):
     #
     # In practice, it is more common to just go for a higher order integrator such as RK4.
     if mode == 0:
-        integrator = gs.integrator.approximate_implicitfast
+        integrator = ezsim.integrator.approximate_implicitfast
         substeps = 1
         armature = 0.0
     elif mode == 1:
-        integrator = gs.integrator.implicitfast
+        integrator = ezsim.integrator.implicitfast
         substeps = 4
         armature = 0.0
     elif mode == 2:
-        integrator = gs.integrator.Euler
+        integrator = ezsim.integrator.Euler
         substeps = 1
         armature = 2.0
 
     # Create and build the scene
-    scene = gs.Scene(
-        sim_options=gs.options.SimOptions(
+    scene = ezsim.Scene(
+        sim_options=ezsim.options.SimOptions(
             dt=0.01,
             substeps=substeps,
         ),
-        rigid_options=gs.options.RigidOptions(
+        rigid_options=ezsim.options.RigidOptions(
             box_box_detection=True,
             integrator=integrator,
         ),
@@ -1181,24 +1181,24 @@ def move_cube(use_suction, mode, show_viewer):
         show_FPS=False,
     )
     plane = scene.add_entity(
-        gs.morphs.Plane(),
+        ezsim.morphs.Plane(),
     )
     cube = scene.add_entity(
-        gs.morphs.Box(
+        ezsim.morphs.Box(
             size=(0.05, 0.05, 0.05),
             pos=(0.65, 0.0, 0.025),
         ),
-        surface=gs.surfaces.Plastic(color=(1, 0, 0)),
+        surface=ezsim.surfaces.Plastic(color=(1, 0, 0)),
     )
     cube_2 = scene.add_entity(
-        gs.morphs.Box(
+        ezsim.morphs.Box(
             size=(0.05, 0.05, 0.05),
             pos=(0.4, 0.2, 0.025),
         ),
-        surface=gs.surfaces.Plastic(color=(0, 1, 0)),
+        surface=ezsim.surfaces.Plastic(color=(0, 1, 0)),
     )
     franka = scene.add_entity(
-        gs.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
+        ezsim.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
         vis_mode="collision",
         visualize_contact=True,
     )
@@ -1313,12 +1313,12 @@ def move_cube(use_suction, mode, show_viewer):
 @pytest.mark.parametrize(
     "mode, backend",
     [
-        pytest.param(0, gs.cpu, marks=pytest.mark.required),
-        pytest.param(1, gs.cpu),
-        pytest.param(2, gs.cpu),
-        pytest.param(0, gs.gpu),
-        pytest.param(1, gs.gpu),
-        pytest.param(2, gs.gpu),
+        pytest.param(0, ezsim.cpu, marks=pytest.mark.required),
+        pytest.param(1, ezsim.cpu),
+        pytest.param(2, ezsim.cpu),
+        pytest.param(0, ezsim.gpu),
+        pytest.param(1, ezsim.gpu),
+        pytest.param(2, ezsim.gpu),
     ],
 )
 def test_inverse_kinematics(mode, show_viewer):
@@ -1326,20 +1326,20 @@ def test_inverse_kinematics(mode, show_viewer):
 
 
 @pytest.mark.parametrize("mode", [0, 1, 2])
-@pytest.mark.parametrize("backend", [gs.cpu, gs.gpu])
+@pytest.mark.parametrize("backend", [ezsim.cpu, ezsim.gpu])
 def test_suction_cup(mode, show_viewer):
     move_cube(use_suction=True, mode=mode, show_viewer=show_viewer)
 
 
 @pytest.mark.required
 @pytest.mark.parametrize("n_envs", [0, 2])
-@pytest.mark.parametrize("backend", [gs.cpu, gs.gpu])
+@pytest.mark.parametrize("backend", [ezsim.cpu, ezsim.gpu])
 def test_path_planning_avoidance(n_envs, show_viewer):
-    scene = gs.Scene(
-        sim_options=gs.options.SimOptions(
+    scene = ezsim.Scene(
+        sim_options=ezsim.options.SimOptions(
             dt=0.01,
         ),
-        viewer_options=gs.options.ViewerOptions(
+        viewer_options=ezsim.options.ViewerOptions(
             camera_pos=(3, 1, 1.5),
             camera_lookat=(0.0, 0.0, 0.5),
             camera_fov=30,
@@ -1360,18 +1360,18 @@ def test_path_planning_avoidance(n_envs, show_viewer):
         (0.3, -0.3, 0.7),
     ):
         cube = scene.add_entity(
-            gs.morphs.Box(
+            ezsim.morphs.Box(
                 size=(0.1, 0.1, 0.1),
                 pos=pos,
                 fixed=True,
             ),
-            surface=gs.surfaces.Default(
+            surface=ezsim.surfaces.Default(
                 color=(*np.random.rand(3), 0.7),
             ),
         )
         cubes.append(cube)
     franka = scene.add_entity(
-        gs.morphs.MJCF(
+        ezsim.morphs.MJCF(
             file="xml/franka_emika_panda/panda.xml",
         ),
         vis_mode="collision",
@@ -1379,8 +1379,8 @@ def test_path_planning_avoidance(n_envs, show_viewer):
     scene.build(n_envs=n_envs)
 
     hand = franka.get_link("hand")
-    hand_pos_ref = torch.tensor([0.3, 0.25, 0.25], dtype=gs.tc_float, device=gs.device)
-    hand_quat_ref = torch.tensor([0.3073, 0.5303, 0.7245, -0.2819], dtype=gs.tc_float, device=gs.device)
+    hand_pos_ref = torch.tensor([0.3, 0.25, 0.25], dtype=ezsim.tc_float, device=ezsim.device)
+    hand_quat_ref = torch.tensor([0.3073, 0.5303, 0.7245, -0.2819], dtype=ezsim.tc_float, device=ezsim.device)
     if n_envs > 0:
         hand_pos_ref = hand_pos_ref.repeat((n_envs, 1))
         hand_quat_ref = hand_quat_ref.repeat((n_envs, 1))
@@ -1393,8 +1393,8 @@ def test_path_planning_avoidance(n_envs, show_viewer):
         resolution=0.05,
         ignore_collision=True,
     )
-    assert_allclose(free_path[0], 0, tol=gs.EPS)
-    assert_allclose(free_path[-1], qpos, tol=gs.EPS)
+    assert_allclose(free_path[0], 0, tol=ezsim.EPS)
+    assert_allclose(free_path[-1], qpos, tol=ezsim.EPS)
 
     qpos = franka.inverse_kinematics(hand, pos=hand_pos_ref, quat=hand_quat_ref)
     qpos[..., -2:] = 0.04
@@ -1406,8 +1406,8 @@ def test_path_planning_avoidance(n_envs, show_viewer):
         max_nodes=4000,
         max_retry=40,
     )
-    assert_allclose(avoidance_path[0], 0.0, tol=gs.EPS)
-    assert_allclose(avoidance_path[-1], qpos, tol=gs.EPS)
+    assert_allclose(avoidance_path[0], 0.0, tol=ezsim.EPS)
+    assert_allclose(avoidance_path[-1], qpos, tol=ezsim.EPS)
 
     for path, ignore_collision in ((free_path, False), (avoidance_path, True)):
         max_penetration = float("-inf")
@@ -1433,13 +1433,13 @@ def test_path_planning_avoidance(n_envs, show_viewer):
 
 
 @pytest.mark.required
-@pytest.mark.parametrize("backend", [gs.cpu])
+@pytest.mark.parametrize("backend", [ezsim.cpu])
 def test_all_fixed(show_viewer):
-    scene = gs.Scene(
-        sim_options=gs.options.SimOptions(
+    scene = ezsim.Scene(
+        sim_options=ezsim.options.SimOptions(
             dt=0.01,
         ),
-        viewer_options=gs.options.ViewerOptions(
+        viewer_options=ezsim.options.ViewerOptions(
             camera_pos=(3, 1, 1.5),
             camera_lookat=(0.0, 0.0, 0.5),
             camera_fov=30,
@@ -1449,7 +1449,7 @@ def test_all_fixed(show_viewer):
         show_FPS=False,
     )
     cube = scene.add_entity(
-        gs.morphs.Box(
+        ezsim.morphs.Box(
             size=(0.1, 0.1, 0.1),
             pos=(0.0, 0.0, 0.0),
             fixed=True,
@@ -1458,21 +1458,21 @@ def test_all_fixed(show_viewer):
     scene.build()
     scene.step()
 
-    assert_allclose(cube.get_pos(), 0, tol=gs.EPS)
-    assert_allclose(cube.get_quat(), (1.0, 0.0, 0.0, 0.0), tol=gs.EPS)
-    assert_allclose(cube.get_vel(), 0, tol=gs.EPS)
-    assert_allclose(cube.get_ang(), 0, tol=gs.EPS)
-    assert_allclose(scene.rigid_solver.get_links_acc(), 0, tol=gs.EPS)
+    assert_allclose(cube.get_pos(), 0, tol=ezsim.EPS)
+    assert_allclose(cube.get_quat(), (1.0, 0.0, 0.0, 0.0), tol=ezsim.EPS)
+    assert_allclose(cube.get_vel(), 0, tol=ezsim.EPS)
+    assert_allclose(cube.get_ang(), 0, tol=ezsim.EPS)
+    assert_allclose(scene.rigid_solver.get_links_acc(), 0, tol=ezsim.EPS)
 
 
 @pytest.mark.required
 def test_contact_forces(show_viewer, tol):
-    scene = gs.Scene(
-        rigid_options=gs.options.RigidOptions(
+    scene = ezsim.Scene(
+        rigid_options=ezsim.options.RigidOptions(
             dt=0.01,
             box_box_detection=True,
         ),
-        viewer_options=gs.options.ViewerOptions(
+        viewer_options=ezsim.options.ViewerOptions(
             camera_pos=(3, -1, 1.5),
             camera_lookat=(0.0, 0.0, 0.5),
             camera_fov=30,
@@ -1484,13 +1484,13 @@ def test_contact_forces(show_viewer, tol):
     )
 
     plane = scene.add_entity(
-        gs.morphs.Plane(),
+        ezsim.morphs.Plane(),
     )
     franka = scene.add_entity(
-        gs.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
+        ezsim.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
     )
     cube = scene.add_entity(
-        gs.morphs.Box(
+        ezsim.morphs.Box(
             size=(0.04, 0.04, 0.04),
             pos=(0.65, 0.0, 0.02),
         ),
@@ -1542,8 +1542,8 @@ def test_contact_forces(show_viewer, tol):
 @pytest.mark.required
 @pytest.mark.parametrize("model_name", ["double_ball_pendulum"])
 def test_apply_external_forces(xml_path, show_viewer):
-    scene = gs.Scene(
-        viewer_options=gs.options.ViewerOptions(
+    scene = ezsim.Scene(
+        viewer_options=ezsim.options.ViewerOptions(
             camera_pos=(0, -3.5, 2.5),
             camera_lookat=(0.0, 0.0, 1.0),
             camera_fov=40,
@@ -1553,10 +1553,10 @@ def test_apply_external_forces(xml_path, show_viewer):
     )
 
     plane = scene.add_entity(
-        gs.morphs.Plane(),
+        ezsim.morphs.Plane(),
     )
     robot = scene.add_entity(
-        gs.morphs.MJCF(
+        ezsim.morphs.MJCF(
             file=xml_path,
             quat=(1.0, 0, 1.0, 0),
         ),
@@ -1586,11 +1586,11 @@ def test_apply_external_forces(xml_path, show_viewer):
 
 
 @pytest.mark.required
-@pytest.mark.parametrize("backend", [gs.cpu])
+@pytest.mark.parametrize("backend", [ezsim.cpu])
 def test_mass_mat(show_viewer, tol):
     # Create and build the scene
-    scene = gs.Scene(
-        sim_options=gs.options.SimOptions(
+    scene = ezsim.Scene(
+        sim_options=ezsim.options.SimOptions(
             dt=0.01,
             substeps=1,
         ),
@@ -1598,15 +1598,15 @@ def test_mass_mat(show_viewer, tol):
         show_FPS=False,
     )
     plane = scene.add_entity(
-        gs.morphs.Plane(),
+        ezsim.morphs.Plane(),
     )
     franka1 = scene.add_entity(
-        gs.morphs.MJCF(file="xml/franka_emika_panda/panda.xml", pos=(0, 0, 0)),
+        ezsim.morphs.MJCF(file="xml/franka_emika_panda/panda.xml", pos=(0, 0, 0)),
         vis_mode="collision",
         visualize_contact=True,
     )
     franka2 = scene.add_entity(
-        gs.morphs.MJCF(file="xml/franka_emika_panda/panda.xml", pos=(0, 2, 0)),
+        ezsim.morphs.MJCF(file="xml/franka_emika_panda/panda.xml", pos=(0, 2, 0)),
         vis_mode="collision",
         visualize_contact=True,
     )
@@ -1622,14 +1622,14 @@ def test_mass_mat(show_viewer, tol):
     assert_allclose(mass_mat, mass_mat_1, tol=tol)
 
 
-@pytest.mark.parametrize("backend", [gs.cpu])
+@pytest.mark.parametrize("backend", [ezsim.cpu])
 def test_nonconvex_collision(show_viewer):
-    scene = gs.Scene(
+    scene = ezsim.Scene(
         show_viewer=show_viewer,
         show_FPS=False,
     )
     tank = scene.add_entity(
-        gs.morphs.Mesh(
+        ezsim.morphs.Mesh(
             file="meshes/tank.obj",
             scale=5.0,
             fixed=True,
@@ -1638,11 +1638,11 @@ def test_nonconvex_collision(show_viewer):
         ),
     )
     ball = scene.add_entity(
-        gs.morphs.Sphere(
+        ezsim.morphs.Sphere(
             radius=0.05,
             pos=(0.0, 0.0, 0.8),
         ),
-        surface=gs.surfaces.Default(
+        surface=ezsim.surfaces.Default(
             color=(0.5, 0.7, 0.9, 1.0),
         ),
         visualize_contact=True,
@@ -1661,13 +1661,13 @@ def test_nonconvex_collision(show_viewer):
 
 @pytest.mark.parametrize("convexify", [True, False])
 @pytest.mark.parametrize("gjk_collision", [True, False])
-@pytest.mark.parametrize("backend", [gs.cpu])
+@pytest.mark.parametrize("backend", [ezsim.cpu])
 def test_mesh_repair(convexify, show_viewer, gjk_collision):
-    scene = gs.Scene(
-        sim_options=gs.options.SimOptions(
+    scene = ezsim.Scene(
+        sim_options=ezsim.options.SimOptions(
             dt=0.004,
         ),
-        rigid_options=gs.options.RigidOptions(
+        rigid_options=ezsim.options.RigidOptions(
             use_gjk_collision=gjk_collision,
         ),
         show_viewer=show_viewer,
@@ -1675,7 +1675,7 @@ def test_mesh_repair(convexify, show_viewer, gjk_collision):
     )
     asset_path = get_hf_assets(pattern="work_table.glb")
     table = scene.add_entity(
-        gs.morphs.Mesh(
+        ezsim.morphs.Mesh(
             file=f"{asset_path}/work_table.glb",
             pos=(0.4, 0.0, -0.54),
             fixed=True,
@@ -1684,7 +1684,7 @@ def test_mesh_repair(convexify, show_viewer, gjk_collision):
     )
     asset_path = get_hf_assets(pattern="spoon.glb")
     obj = scene.add_entity(
-        gs.morphs.Mesh(
+        ezsim.morphs.Mesh(
             file=f"{asset_path}/spoon.glb",
             pos=(0.3, 0, 0.015),
             quat=(0.707, 0.707, 0, 0),
@@ -1716,7 +1716,7 @@ def test_mesh_repair(convexify, show_viewer, gjk_collision):
 @pytest.mark.required
 @pytest.mark.parametrize("euler", [(90, 0, 90), (75, 15, 90)])
 @pytest.mark.parametrize("gjk_collision", [True, False])
-@pytest.mark.parametrize("backend", [gs.cpu, gs.gpu])
+@pytest.mark.parametrize("backend", [ezsim.cpu, ezsim.gpu])
 def test_convexify(euler, backend, show_viewer, gjk_collision):
     OBJ_OFFSET_X = 0.0  # 0.02
     OBJ_OFFSET_Y = 0.15
@@ -1724,8 +1724,8 @@ def test_convexify(euler, backend, show_viewer, gjk_collision):
     # The test check that the volume difference is under a given threshold and
     # that convex decomposition is only used whenever it is necessary.
     # Then run a simulation to see if it explodes, i.e. objects are at reset inside tank.
-    scene = gs.Scene(
-        rigid_options=gs.options.RigidOptions(
+    scene = ezsim.Scene(
+        rigid_options=ezsim.options.RigidOptions(
             dt=0.004,
             use_gjk_collision=gjk_collision,
         ),
@@ -1733,7 +1733,7 @@ def test_convexify(euler, backend, show_viewer, gjk_collision):
         show_FPS=False,
     )
     box = scene.add_entity(
-        gs.morphs.URDF(
+        ezsim.morphs.URDF(
             file="urdf/blue_box/model.urdf",
             fixed=True,
             pos=(0.0, 1.0, 0.0),
@@ -1741,13 +1741,13 @@ def test_convexify(euler, backend, show_viewer, gjk_collision):
         vis_mode="collision",
     )
     tank = scene.add_entity(
-        gs.morphs.Mesh(
+        ezsim.morphs.Mesh(
             file="meshes/tank.obj",
             scale=5.0,
             fixed=True,
             pos=(0.05, -0.1, 0.0),
             euler=euler,
-            # coacd_options=gs.options.CoacdOptions(
+            # coacd_options=ezsim.options.CoacdOptions(
             #     threshold=0.08,
             # ),
         ),
@@ -1757,7 +1757,7 @@ def test_convexify(euler, backend, show_viewer, gjk_collision):
     for i, asset_name in enumerate(("mug_1", "donut_0", "cup_2", "apple_15")):
         asset_path = get_hf_assets(pattern=f"{asset_name}/*")
         obj = scene.add_entity(
-            gs.morphs.MJCF(
+            ezsim.morphs.MJCF(
                 file=f"{asset_path}/{asset_name}/output.xml",
                 pos=(OBJ_OFFSET_X * (1.5 - i), OBJ_OFFSET_Y * (i - 1.5), 0.4),
             ),
@@ -1774,11 +1774,11 @@ def test_convexify(euler, backend, show_viewer, gjk_collision):
     #     GUI=False,
     # )
     scene.build()
-    gs_sim = scene.sim
+    ezsim_sim = scene.sim
 
     # Make sure that all the geometries in the scene are convex
-    assert gs_sim.rigid_solver.geoms_info.is_convex.to_numpy().all()
-    assert not gs_sim.rigid_solver.collider._collider_static_config.has_nonconvex_nonterrain
+    assert ezsim_sim.rigid_solver.geoms_info.is_convex.to_numpy().all()
+    assert not ezsim_sim.rigid_solver.collider._collider_static_config.has_nonconvex_nonterrain
 
     # There should be only one geometry for the apple as it can be convexify without decomposition,
     # but for the others it is hard to tell... Let's use some reasonable guess.
@@ -1796,7 +1796,7 @@ def test_convexify(euler, backend, show_viewer, gjk_collision):
         scene.step()
         # cam.render()
         if i > 1600:
-            qvel = gs_sim.rigid_solver.get_dofs_velocity()
+            qvel = ezsim_sim.rigid_solver.get_dofs_velocity()
             qvel_norminf = torch.linalg.norm(qvel, ord=math.inf)
             qvel_norminf_all.append(qvel_norminf)
     np.testing.assert_array_less(torch.median(torch.stack(qvel_norminf_all, dim=0)).cpu(), 4.0)
@@ -1820,39 +1820,39 @@ def test_convexify(euler, backend, show_viewer, gjk_collision):
 @pytest.mark.mujoco_compatibility(False)
 @pytest.mark.parametrize("mode", range(9))
 @pytest.mark.parametrize("model_name", ["collision_edge_cases"])
-@pytest.mark.parametrize("gs_solver", [gs.constraint_solver.CG])
-@pytest.mark.parametrize("gs_integrator", [gs.integrator.Euler])
+@pytest.mark.parametrize("ezsim_solver", [ezsim.constraint_solver.CG])
+@pytest.mark.parametrize("ezsim_integrator", [ezsim.integrator.Euler])
 @pytest.mark.parametrize("gjk_collision", [True, False])
-@pytest.mark.parametrize("backend", [gs.cpu, gs.gpu])
-def test_collision_edge_cases(gs_sim, mode, gjk_collision):
-    qpos_0 = gs_sim.rigid_solver.get_dofs_position()
+@pytest.mark.parametrize("backend", [ezsim.cpu, ezsim.gpu])
+def test_collision_edge_cases(ezsim_sim, mode, gjk_collision):
+    qpos_0 = ezsim_sim.rigid_solver.get_dofs_position()
     for _ in range(200):
-        gs_sim.scene.step()
+        ezsim_sim.scene.step()
 
-    qvel = gs_sim.rigid_solver.get_dofs_velocity()
+    qvel = ezsim_sim.rigid_solver.get_dofs_velocity()
     assert_allclose(qvel, 0, atol=1e-2)
-    qpos = gs_sim.rigid_solver.get_dofs_position()
+    qpos = ezsim_sim.rigid_solver.get_dofs_position()
     # When using GJK, tolerance should be slightly higher for mode 6, but it is still physically valid.
     atol = 1e-3 if gjk_collision == True and mode == 6 else 1e-4
     assert_allclose(qpos[[0, 1, 3, 4, 5]], qpos_0[[0, 1, 3, 4, 5]], atol=atol)
 
 
 @pytest.mark.required
-@pytest.mark.parametrize("backend", [gs.cpu])
+@pytest.mark.parametrize("backend", [ezsim.cpu])
 def test_collision_plane_convex(show_viewer, tol):
     for morph in (
-        gs.morphs.Plane(),
-        gs.morphs.Box(
+        ezsim.morphs.Plane(),
+        ezsim.morphs.Box(
             pos=(0.5, 0.0, -0.5),
             size=(1.0, 1.0, 1.0),
             fixed=True,
         ),
     ):
-        scene = gs.Scene(
-            sim_options=gs.options.SimOptions(
+        scene = ezsim.Scene(
+            sim_options=ezsim.options.SimOptions(
                 dt=0.001,
             ),
-            viewer_options=gs.options.ViewerOptions(
+            viewer_options=ezsim.options.ViewerOptions(
                 camera_pos=(1.0, -0.5, 0.5),
                 camera_lookat=(0.5, 0.0, 0.0),
                 camera_fov=30,
@@ -1866,7 +1866,7 @@ def test_collision_plane_convex(show_viewer, tol):
 
         asset_path = get_hf_assets(pattern="image_0000_segmented.glb")
         asset = scene.add_entity(
-            gs.morphs.Mesh(
+            ezsim.morphs.Mesh(
                 file=f"{asset_path}/image_0000_segmented.glb",
                 scale=0.03196910891804585,
                 pos=(0.45184245, 0.05020455, 0.02),
@@ -1888,32 +1888,32 @@ def test_collision_plane_convex(show_viewer, tol):
 @pytest.mark.xfail(reason="No reliable way to generate nan on all platforms.")
 @pytest.mark.parametrize("mode", [3])
 @pytest.mark.parametrize("model_name", ["collision_edge_cases"])
-@pytest.mark.parametrize("gs_solver", [gs.constraint_solver.CG])
-@pytest.mark.parametrize("gs_integrator", [gs.integrator.Euler])
-@pytest.mark.parametrize("backend", [gs.cpu])
-def test_nan_reset(gs_sim, mode):
+@pytest.mark.parametrize("ezsim_solver", [ezsim.constraint_solver.CG])
+@pytest.mark.parametrize("ezsim_integrator", [ezsim.integrator.Euler])
+@pytest.mark.parametrize("backend", [ezsim.cpu])
+def test_nan_reset(ezsim_sim, mode):
     for _ in range(200):
-        gs_sim.scene.step()
-        qvel = gs_sim.rigid_solver.get_dofs_velocity()
+        ezsim_sim.scene.step()
+        qvel = ezsim_sim.rigid_solver.get_dofs_velocity()
         if torch.isnan(qvel).any():
             break
     else:
         raise AssertionError
 
-    gs_sim.scene.reset()
+    ezsim_sim.scene.reset()
     for _ in range(5):
-        gs_sim.scene.step()
-    qvel = gs_sim.rigid_solver.get_dofs_velocity()
+        ezsim_sim.scene.step()
+    qvel = ezsim_sim.rigid_solver.get_dofs_velocity()
     assert not torch.isnan(qvel).any()
 
 
-@pytest.mark.parametrize("backend", [gs.cpu, gs.gpu])
+@pytest.mark.parametrize("backend", [ezsim.cpu, ezsim.gpu])
 def test_terrain_generation(show_viewer):
-    scene = gs.Scene(
-        rigid_options=gs.options.RigidOptions(
+    scene = ezsim.Scene(
+        rigid_options=ezsim.options.RigidOptions(
             dt=0.01,
         ),
-        viewer_options=gs.options.ViewerOptions(
+        viewer_options=ezsim.options.ViewerOptions(
             camera_pos=(-5.0, -5.0, 10.0),
             camera_lookat=(5.0, 5.0, 0.0),
             camera_fov=40,
@@ -1922,7 +1922,7 @@ def test_terrain_generation(show_viewer):
         show_FPS=False,
     )
     terrain = scene.add_entity(
-        morph=gs.morphs.Terrain(
+        morph=ezsim.morphs.Terrain(
             n_subterrains=(2, 2),
             subterrain_size=(6.0, 6.0),
             horizontal_scale=0.25,
@@ -1934,7 +1934,7 @@ def test_terrain_generation(show_viewer):
         ),
     )
     ball = scene.add_entity(
-        morph=gs.morphs.Sphere(
+        morph=ezsim.morphs.Sphere(
             pos=(1.0, 1.0, 1.0),
             radius=0.1,
         ),
@@ -1957,11 +1957,11 @@ def test_terrain_generation(show_viewer):
 
 
 @pytest.mark.required
-@pytest.mark.parametrize("backend", [gs.cpu])
+@pytest.mark.parametrize("backend", [ezsim.cpu])
 def test_terrain_size(show_viewer, tol):
-    scene_ref = gs.Scene(show_viewer=show_viewer)
+    scene_ref = ezsim.Scene(show_viewer=show_viewer)
     terrain_ref = scene_ref.add_entity(
-        morph=gs.morphs.Terrain(
+        morph=ezsim.morphs.Terrain(
             n_subterrains=(2, 2),
             subterrain_size=(12.0, 12.0),
             horizontal_scale=0.25,
@@ -1971,9 +1971,9 @@ def test_terrain_size(show_viewer, tol):
 
     height_ref = terrain_ref.geoms[0].metadata["height_field"]
 
-    scene_test = gs.Scene(show_viewer=show_viewer)
+    scene_test = ezsim.Scene(show_viewer=show_viewer)
     terrain_test = scene_test.add_entity(
-        morph=gs.morphs.Terrain(
+        morph=ezsim.morphs.Terrain(
             n_subterrains=(2, 2),
             subterrain_size=(12.0, 12.0),
             horizontal_scale=0.25,
@@ -1990,17 +1990,17 @@ def test_terrain_size(show_viewer, tol):
 @pytest.mark.required
 @pytest.mark.merge_fixed_links(False)
 @pytest.mark.parametrize("model_name", ["pendulum"])
-@pytest.mark.parametrize("gs_solver", [gs.constraint_solver.CG])
-@pytest.mark.parametrize("gs_integrator", [gs.integrator.Euler])
-def test_jacobian(gs_sim, tol):
-    pendulum = gs_sim.entities[0]
+@pytest.mark.parametrize("ezsim_solver", [ezsim.constraint_solver.CG])
+@pytest.mark.parametrize("ezsim_integrator", [ezsim.integrator.Euler])
+def test_jacobian(ezsim_sim, tol):
+    pendulum = ezsim_sim.entities[0]
     angle = 0.7
-    pendulum.set_qpos(np.array([angle], dtype=gs.np_float))
-    gs_sim.scene.step()
+    pendulum.set_qpos(np.array([angle], dtype=ezsim.np_float))
+    ezsim_sim.scene.step()
 
     link = pendulum.get_link("PendulumArm_0")
 
-    p_local = np.array([0.05, -0.02, 0.12], dtype=gs.np_float)
+    p_local = np.array([0.05, -0.02, 0.12], dtype=ezsim.np_float)
     J_o = tensor_to_array(pendulum.get_jacobian(link))
     J_p = tensor_to_array(pendulum.get_jacobian(link, p_local))
 
@@ -2011,7 +2011,7 @@ def test_jacobian(gs_sim, tol):
             [0, c, -s],
             [0, s, c],
         ],
-        dtype=gs.np_float,
+        dtype=ezsim.np_float,
     )
     r_world = Rx @ p_local
     r_cross = np.array(
@@ -2020,7 +2020,7 @@ def test_jacobian(gs_sim, tol):
             [r_world[2], 0, -r_world[0]],
             [-r_world[1], r_world[0], 0],
         ],
-        dtype=gs.np_float,
+        dtype=ezsim.np_float,
     )
 
     lin_o, ang_o = J_o[:3, 0], J_o[3:, 0]
@@ -2031,14 +2031,14 @@ def test_jacobian(gs_sim, tol):
 
 
 @pytest.mark.required
-@pytest.mark.parametrize("backend", [gs.cpu])
+@pytest.mark.parametrize("backend", [ezsim.cpu])
 def test_urdf_parsing(show_viewer, tol):
     POS_OFFSET = 0.8
     WOLRD_QUAT = np.array([1.0, 1.0, -0.3, +0.3])
     DOOR_JOINT_DAMPING = 1.5
 
-    scene = gs.Scene(
-        rigid_options=gs.options.RigidOptions(
+    scene = ezsim.Scene(
+        rigid_options=ezsim.options.RigidOptions(
             # Must use GJK to make collision detection independent from the center of each geometry.
             # Note that it is also the case for MPR+SDF most of the time due to warm-start.
             use_gjk_collision=True,
@@ -2052,7 +2052,7 @@ def test_urdf_parsing(show_viewer, tol):
         ((False, False), (False, True), (True, False), (True, True)),
     ):
         entity = scene.add_entity(
-            morph=gs.morphs.URDF(
+            morph=ezsim.morphs.URDF(
                 file=f"{asset_path}/microwave/microwave.urdf",
                 fixed=fixed,
                 merge_fixed_links=merge_fixed_links,
@@ -2091,7 +2091,7 @@ def test_urdf_parsing(show_viewer, tol):
             entities[key].set_quat(np.array([0.0, 0.0, 0.0, 1.0]), relative=relative)
         if show_viewer:
             scene.visualizer.update()
-        _check_entity_positions(relative, tol=gs.EPS)
+        _check_entity_positions(relative, tol=ezsim.EPS)
 
     # Check that `set_qpos` applies the same absolute transform in all cases
     door_angle = np.array([1.1])
@@ -2106,7 +2106,7 @@ def test_urdf_parsing(show_viewer, tol):
         entities[key].set_qpos(door_angle)
     if show_viewer:
         scene.visualizer.update()
-    _check_entity_positions(relative=True, tol=gs.EPS)
+    _check_entity_positions(relative=True, tol=ezsim.EPS)
 
     # Add dof damping to stabilitze the physics
     for key in ((False, False), (False, True), (True, False), (True, True)):
@@ -2138,14 +2138,14 @@ def test_urdf_parsing(show_viewer, tol):
 
 
 @pytest.mark.required
-@pytest.mark.parametrize("backend", [gs.cpu])
+@pytest.mark.parametrize("backend", [ezsim.cpu])
 def test_urdf_mimic(show_viewer, tol):
     # create and build the scene
-    scene = gs.Scene(
+    scene = ezsim.Scene(
         show_viewer=show_viewer,
     )
     hand = scene.add_entity(
-        gs.morphs.URDF(
+        ezsim.morphs.URDF(
             file="urdf/panda_bullet/hand.urdf",
             fixed=True,
         ),
@@ -2159,18 +2159,18 @@ def test_urdf_mimic(show_viewer, tol):
     for i in range(200):
         scene.step()
 
-    gs_qpos = scene.rigid_solver.qpos.to_numpy()[:, 0]
-    assert_allclose(gs_qpos[-1], gs_qpos[-2], tol=tol)
+    ezsim_qpos = scene.rigid_solver.qpos.to_numpy()[:, 0]
+    assert_allclose(ezsim_qpos[-1], ezsim_qpos[-2], tol=tol)
 
 
 @pytest.mark.required
-@pytest.mark.parametrize("backend", [gs.cpu])
+@pytest.mark.parametrize("backend", [ezsim.cpu])
 def test_gravity(show_viewer, tol):
-    scene = gs.Scene(
+    scene = ezsim.Scene(
         show_viewer=show_viewer,
     )
 
-    sphere = scene.add_entity(gs.morphs.Sphere())
+    sphere = scene.add_entity(ezsim.morphs.Sphere())
     scene.build(n_envs=2)
 
     scene.sim.set_gravity(torch.tensor([0.0, 0.0, -9.8]), envs_idx=0)
@@ -2186,16 +2186,16 @@ def test_gravity(show_viewer, tol):
 
 
 @pytest.mark.required
-@pytest.mark.parametrize("backend", [gs.cpu])
+@pytest.mark.parametrize("backend", [ezsim.cpu])
 def test_scene_saver_franka(show_viewer, tol):
-    scene1 = gs.Scene(
+    scene1 = ezsim.Scene(
         show_viewer=show_viewer,
-        profiling_options=gs.options.ProfilingOptions(
+        profiling_options=ezsim.options.ProfilingOptions(
             show_FPS=False,
         ),
     )
     franka1 = scene1.add_entity(
-        gs.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
+        ezsim.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
     )
     scene1.build()
 
@@ -2215,9 +2215,9 @@ def test_scene_saver_franka(show_viewer, tol):
     ckpt_path = Path(tempfile.gettempdir()) / "franka_unit.pkl"
     scene1.save_checkpoint(ckpt_path)
 
-    scene2 = gs.Scene(show_viewer=show_viewer)
+    scene2 = ezsim.Scene(show_viewer=show_viewer)
     franka2 = scene2.add_entity(
-        gs.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
+        ezsim.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
     )
     scene2.build()
     scene2.load_checkpoint(ckpt_path)
@@ -2228,18 +2228,18 @@ def test_scene_saver_franka(show_viewer, tol):
 
 
 @pytest.mark.required
-@pytest.mark.parametrize("backend", [gs.cpu])
+@pytest.mark.parametrize("backend", [ezsim.cpu])
 def test_drone_hover_same_with_and_without_substeps(show_viewer, tol):
     base_rpm = 15000
-    scene_ref = gs.Scene(
+    scene_ref = ezsim.Scene(
         show_viewer=show_viewer,
-        sim_options=gs.options.SimOptions(
+        sim_options=ezsim.options.SimOptions(
             dt=0.002,
             substeps=1,
         ),
     )
     drone_ref = scene_ref.add_entity(
-        morph=gs.morphs.Drone(
+        morph=ezsim.morphs.Drone(
             file="urdf/drones/cf2x.urdf",
             pos=(0, 0, 1.0),
         ),
@@ -2252,15 +2252,15 @@ def test_drone_hover_same_with_and_without_substeps(show_viewer, tol):
 
     pos_ref = drone_ref.get_dofs_position()
 
-    scene_test = gs.Scene(
+    scene_test = ezsim.Scene(
         show_viewer=show_viewer,
-        sim_options=gs.options.SimOptions(
+        sim_options=ezsim.options.SimOptions(
             dt=0.01,
             substeps=5,
         ),
     )
     drone_test = scene_test.add_entity(
-        morph=gs.morphs.Drone(
+        morph=ezsim.morphs.Drone(
             file="urdf/drones/cf2x.urdf",
             pos=(0, 0, 1.0),
         ),
@@ -2277,13 +2277,13 @@ def test_drone_hover_same_with_and_without_substeps(show_viewer, tol):
 
 
 @pytest.mark.required
-@pytest.mark.parametrize("backend", [gs.cpu])
+@pytest.mark.parametrize("backend", [ezsim.cpu])
 def test_drone_advanced(show_viewer):
-    scene = gs.Scene(
-        sim_options=gs.options.SimOptions(
+    scene = ezsim.Scene(
+        sim_options=ezsim.options.SimOptions(
             dt=0.005,
         ),
-        viewer_options=gs.options.ViewerOptions(
+        viewer_options=ezsim.options.ViewerOptions(
             camera_pos=(2.5, 0.0, 1.5),
             camera_lookat=(0.0, 0.0, 0.5),
             camera_fov=30,
@@ -2292,12 +2292,12 @@ def test_drone_advanced(show_viewer):
         show_viewer=show_viewer,
         show_FPS=False,
     )
-    plane = scene.add_entity(gs.morphs.Plane())
+    plane = scene.add_entity(ezsim.morphs.Plane())
     asset_path = get_hf_assets(pattern="drone_sus/*")
     drones = []
     for offset, merge_fixed_links in ((-0.3, False), (0.3, True)):
         drone = scene.add_entity(
-            morph=gs.morphs.Drone(
+            morph=ezsim.morphs.Drone(
                 file=f"{asset_path}/drone_sus/drone_sus.urdf",
                 merge_fixed_links=merge_fixed_links,
                 pos=(0.0, offset, 1.5),
@@ -2349,63 +2349,63 @@ def test_drone_advanced(show_viewer):
 @pytest.mark.parametrize(
     "n_envs, batched, backend",
     [
-        (0, False, gs.cpu),
-        (0, False, gs.gpu),
-        (3, False, gs.cpu),
-        # (3, True, gs.cpu),  # FIXME: Must refactor the unit test to support batching
+        (0, False, ezsim.cpu),
+        (0, False, ezsim.gpu),
+        (3, False, ezsim.cpu),
+        # (3, True, ezsim.cpu),  # FIXME: Must refactor the unit test to support batching
     ],
 )
 def test_data_accessor(n_envs, batched, tol):
     # create and build the scene
-    scene = gs.Scene(
-        rigid_options=gs.options.RigidOptions(
+    scene = ezsim.Scene(
+        rigid_options=ezsim.options.RigidOptions(
             batch_dofs_info=batched,
             batch_joints_info=batched,
             batch_links_info=batched,
         ),
         show_viewer=False,
     )
-    scene.add_entity(gs.morphs.Plane())
-    gs_robot = scene.add_entity(
-        gs.morphs.URDF(
+    scene.add_entity(ezsim.morphs.Plane())
+    ezsim_robot = scene.add_entity(
+        ezsim.morphs.URDF(
             file="urdf/go2/urdf/go2.urdf",
         ),
     )
     scene.build(n_envs=n_envs)
-    gs_sim = scene.sim
-    gs_s = gs_sim.rigid_solver
+    ezsim_sim = scene.sim
+    ezsim_s = ezsim_sim.rigid_solver
 
     # Initialize the simulation
     np.random.seed(0)
-    dof_bounds = gs_sim.rigid_solver.dofs_info.limit.to_torch(device="cpu")
+    dof_bounds = ezsim_sim.rigid_solver.dofs_info.limit.to_torch(device="cpu")
     dof_bounds[..., :2, :] = torch.tensor((-1.0, 1.0))
     dof_bounds[..., 2, :] = torch.tensor((0.7, 1.0))
     dof_bounds[..., 3:6, :] = torch.tensor((-np.pi / 2, np.pi / 2))
     for i in range(max(n_envs, 1)):
-        qpos = dof_bounds[:, 0] + (dof_bounds[:, 1] - dof_bounds[:, 0]) * np.random.rand(gs_robot.n_dofs)
-        gs_robot.set_dofs_position(qpos, envs_idx=([i] if n_envs else None))
+        qpos = dof_bounds[:, 0] + (dof_bounds[:, 1] - dof_bounds[:, 0]) * np.random.rand(ezsim_robot.n_dofs)
+        ezsim_robot.set_dofs_position(qpos, envs_idx=([i] if n_envs else None))
 
     # Simulate for a while, until they collide with something
     for _ in range(400):
-        gs_sim.step()
+        ezsim_sim.step()
 
-        gs_n_contacts = gs_sim.rigid_solver.collider._collider_state.n_contacts.to_numpy()
-        assert len(gs_n_contacts) == max(n_envs, 1)
+        ezsim_n_contacts = ezsim_sim.rigid_solver.collider._collider_state.n_contacts.to_numpy()
+        assert len(ezsim_n_contacts) == max(n_envs, 1)
         for as_tensor in (False, True):
             for to_torch in (False, True):
-                contacts_info = gs_sim.rigid_solver.collider.get_contacts(as_tensor, to_torch)
+                contacts_info = ezsim_sim.rigid_solver.collider.get_contacts(as_tensor, to_torch)
                 for value in contacts_info.values():
                     if n_envs > 0:
                         assert n_envs == len(value)
                     else:
-                        assert gs_n_contacts[0] == len(value)
+                        assert ezsim_n_contacts[0] == len(value)
                         value = value[None] if as_tensor else (value,)
 
                     for i_b in range(n_envs):
-                        n_contacts = gs_n_contacts[i_b]
+                        n_contacts = ezsim_n_contacts[i_b]
                         if as_tensor:
                             assert isinstance(value, torch.Tensor if to_torch else np.ndarray)
-                            if value.dtype in (gs.tc_int, gs.np_int):
+                            if value.dtype in (ezsim.tc_int, ezsim.np_int):
                                 assert (value[i_b, :n_contacts] != -1).all()
                                 assert (value[i_b, n_contacts:] == -1).all()
                             else:
@@ -2413,20 +2413,20 @@ def test_data_accessor(n_envs, batched, tol):
                         else:
                             assert isinstance(value, (list, tuple))
                             assert value[i_b].shape[0] == n_contacts
-                            if value[i_b].dtype in (gs.tc_int, gs.np_int):
+                            if value[i_b].dtype in (ezsim.tc_int, ezsim.np_int):
                                 assert (value[i_b] != -1).all()
 
-        if (gs_n_contacts > 0).all():
+        if (ezsim_n_contacts > 0).all():
             break
     else:
         assert False
-    gs_sim.rigid_solver._kernel_forward_dynamics()
-    gs_sim.rigid_solver._func_constraint_force()
+    ezsim_sim.rigid_solver._kernel_forward_dynamics()
+    ezsim_sim.rigid_solver._func_constraint_force()
 
-    gs_robot.get_contacts()
+    ezsim_robot.get_contacts()
 
     # Make sure that all the robots ends up in the different state
-    qposs = gs_robot.get_qpos()
+    qposs = ezsim_robot.get_qpos()
     for i in range(n_envs - 1):
         with np.testing.assert_raises(AssertionError):
             assert_allclose(qposs[i], qposs[i + 1], tol=tol)
@@ -2447,62 +2447,62 @@ def test_data_accessor(n_envs, batched, tol):
             range(i, i + 1),
             np.array([i], dtype=np.int32),
             torch.tensor([i], dtype=torch.int64),
-            torch.tensor([i], dtype=gs.tc_int, device=gs.device),
+            torch.tensor([i], dtype=ezsim.tc_int, device=ezsim.device),
         )
 
     def must_cast(value):
-        return not (isinstance(value, torch.Tensor) and value.dtype == gs.tc_int and value.device == gs.device)
+        return not (isinstance(value, torch.Tensor) and value.dtype == ezsim.tc_int and value.device == ezsim.device)
 
     for arg1_max, arg2_max, getter, setter, field in (
-        (gs_s.n_links, n_envs, gs_s.get_links_pos, None, gs_s.links_state.pos),
-        (gs_s.n_links, n_envs, gs_s.get_links_quat, None, gs_s.links_state.quat),
-        (gs_s.n_links, n_envs, gs_s.get_links_vel, None, None),
-        (gs_s.n_links, n_envs, gs_s.get_links_ang, None, gs_s.links_state.cd_ang),
-        (gs_s.n_links, n_envs, gs_s.get_links_acc, None, None),
-        (gs_s.n_links, n_envs, gs_s.get_links_root_COM, None, gs_s.links_state.COM),
-        (gs_s.n_links, n_envs, gs_s.get_links_mass_shift, gs_s.set_links_mass_shift, gs_s.links_state.mass_shift),
-        (gs_s.n_links, n_envs, gs_s.get_links_COM_shift, gs_s.set_links_COM_shift, gs_s.links_state.i_pos_shift),
-        (gs_s.n_links, -1, gs_s.get_links_inertial_mass, gs_s.set_links_inertial_mass, gs_s.links_info.inertial_mass),
-        (gs_s.n_links, -1, gs_s.get_links_invweight, gs_s.set_links_invweight, gs_s.links_info.invweight),
-        (gs_s.n_dofs, n_envs, gs_s.get_dofs_control_force, gs_s.control_dofs_force, None),
-        (gs_s.n_dofs, n_envs, gs_s.get_dofs_force, None, gs_s.dofs_state.force),
-        (gs_s.n_dofs, n_envs, gs_s.get_dofs_velocity, gs_s.set_dofs_velocity, gs_s.dofs_state.vel),
-        (gs_s.n_dofs, n_envs, gs_s.get_dofs_position, gs_s.set_dofs_position, gs_s.dofs_state.pos),
-        (gs_s.n_dofs, -1, gs_s.get_dofs_force_range, gs_s.set_dofs_force_range, gs_s.dofs_info.force_range),
-        (gs_s.n_dofs, -1, gs_s.get_dofs_limit, None, gs_s.dofs_info.limit),
-        (gs_s.n_dofs, -1, gs_s.get_dofs_stiffness, None, gs_s.dofs_info.stiffness),
-        (gs_s.n_dofs, -1, gs_s.get_dofs_invweight, None, gs_s.dofs_info.invweight),
-        (gs_s.n_dofs, -1, gs_s.get_dofs_armature, gs_s.set_dofs_armature, gs_s.dofs_info.armature),
-        (gs_s.n_dofs, -1, gs_s.get_dofs_damping, gs_s.set_dofs_damping, gs_s.dofs_info.damping),
-        (gs_s.n_dofs, -1, gs_s.get_dofs_kp, gs_s.set_dofs_kp, gs_s.dofs_info.kp),
-        (gs_s.n_dofs, -1, gs_s.get_dofs_kv, gs_s.set_dofs_kv, gs_s.dofs_info.kv),
-        (gs_s.n_geoms, n_envs, gs_s.get_geoms_pos, None, gs_s.geoms_state.pos),
-        (gs_s.n_geoms, -1, gs_s.get_geoms_friction, gs_s.set_geoms_friction, gs_s.geoms_info.friction),
-        (gs_s.n_qs, n_envs, gs_s.get_qpos, gs_s.set_qpos, gs_s.qpos),
-        (gs_robot.n_links, n_envs, gs_robot.get_links_pos, None, None),
-        (gs_robot.n_links, n_envs, gs_robot.get_links_quat, None, None),
-        (gs_robot.n_links, n_envs, gs_robot.get_links_vel, None, None),
-        (gs_robot.n_links, n_envs, gs_robot.get_links_ang, None, None),
-        (gs_robot.n_links, n_envs, gs_robot.get_links_acc, None, None),
-        (gs_robot.n_links, -1, gs_robot.get_links_inertial_mass, gs_robot.set_links_inertial_mass, None),
-        (gs_robot.n_links, -1, gs_robot.get_links_invweight, gs_robot.set_links_invweight, None),
-        (gs_robot.n_dofs, n_envs, gs_robot.get_dofs_control_force, None, None),
-        (gs_robot.n_dofs, n_envs, gs_robot.get_dofs_force, None, None),
-        (gs_robot.n_dofs, n_envs, gs_robot.get_dofs_velocity, gs_robot.set_dofs_velocity, None),
-        (gs_robot.n_dofs, n_envs, gs_robot.get_dofs_position, gs_robot.set_dofs_position, None),
-        (gs_robot.n_dofs, -1, gs_robot.get_dofs_force_range, gs_robot.set_dofs_force_range, None),
-        (gs_robot.n_dofs, -1, gs_robot.get_dofs_limit, None, None),
-        (gs_robot.n_dofs, -1, gs_robot.get_dofs_stiffness, None, None),
-        (gs_robot.n_dofs, -1, gs_robot.get_dofs_invweight, None, None),
-        (gs_robot.n_dofs, -1, gs_robot.get_dofs_armature, None, None),
-        (gs_robot.n_dofs, -1, gs_robot.get_dofs_damping, None, None),
-        (gs_robot.n_dofs, -1, gs_robot.get_dofs_kp, gs_robot.set_dofs_kp, None),
-        (gs_robot.n_dofs, -1, gs_robot.get_dofs_kv, gs_robot.set_dofs_kv, None),
-        (gs_robot.n_qs, n_envs, gs_robot.get_qpos, gs_robot.set_qpos, None),
-        (-1, n_envs, gs_robot.get_mass_mat, None, None),
-        (-1, n_envs, gs_robot.get_links_net_contact_force, None, None),
-        (-1, n_envs, gs_robot.get_pos, gs_robot.set_pos, None),
-        (-1, n_envs, gs_robot.get_quat, gs_robot.set_quat, None),
+        (ezsim_s.n_links, n_envs, ezsim_s.get_links_pos, None, ezsim_s.links_state.pos),
+        (ezsim_s.n_links, n_envs, ezsim_s.get_links_quat, None, ezsim_s.links_state.quat),
+        (ezsim_s.n_links, n_envs, ezsim_s.get_links_vel, None, None),
+        (ezsim_s.n_links, n_envs, ezsim_s.get_links_ang, None, ezsim_s.links_state.cd_ang),
+        (ezsim_s.n_links, n_envs, ezsim_s.get_links_acc, None, None),
+        (ezsim_s.n_links, n_envs, ezsim_s.get_links_root_COM, None, ezsim_s.links_state.COM),
+        (ezsim_s.n_links, n_envs, ezsim_s.get_links_mass_shift, ezsim_s.set_links_mass_shift, ezsim_s.links_state.mass_shift),
+        (ezsim_s.n_links, n_envs, ezsim_s.get_links_COM_shift, ezsim_s.set_links_COM_shift, ezsim_s.links_state.i_pos_shift),
+        (ezsim_s.n_links, -1, ezsim_s.get_links_inertial_mass, ezsim_s.set_links_inertial_mass, ezsim_s.links_info.inertial_mass),
+        (ezsim_s.n_links, -1, ezsim_s.get_links_invweight, ezsim_s.set_links_invweight, ezsim_s.links_info.invweight),
+        (ezsim_s.n_dofs, n_envs, ezsim_s.get_dofs_control_force, ezsim_s.control_dofs_force, None),
+        (ezsim_s.n_dofs, n_envs, ezsim_s.get_dofs_force, None, ezsim_s.dofs_state.force),
+        (ezsim_s.n_dofs, n_envs, ezsim_s.get_dofs_velocity, ezsim_s.set_dofs_velocity, ezsim_s.dofs_state.vel),
+        (ezsim_s.n_dofs, n_envs, ezsim_s.get_dofs_position, ezsim_s.set_dofs_position, ezsim_s.dofs_state.pos),
+        (ezsim_s.n_dofs, -1, ezsim_s.get_dofs_force_range, ezsim_s.set_dofs_force_range, ezsim_s.dofs_info.force_range),
+        (ezsim_s.n_dofs, -1, ezsim_s.get_dofs_limit, None, ezsim_s.dofs_info.limit),
+        (ezsim_s.n_dofs, -1, ezsim_s.get_dofs_stiffness, None, ezsim_s.dofs_info.stiffness),
+        (ezsim_s.n_dofs, -1, ezsim_s.get_dofs_invweight, None, ezsim_s.dofs_info.invweight),
+        (ezsim_s.n_dofs, -1, ezsim_s.get_dofs_armature, ezsim_s.set_dofs_armature, ezsim_s.dofs_info.armature),
+        (ezsim_s.n_dofs, -1, ezsim_s.get_dofs_damping, ezsim_s.set_dofs_damping, ezsim_s.dofs_info.damping),
+        (ezsim_s.n_dofs, -1, ezsim_s.get_dofs_kp, ezsim_s.set_dofs_kp, ezsim_s.dofs_info.kp),
+        (ezsim_s.n_dofs, -1, ezsim_s.get_dofs_kv, ezsim_s.set_dofs_kv, ezsim_s.dofs_info.kv),
+        (ezsim_s.n_geoms, n_envs, ezsim_s.get_geoms_pos, None, ezsim_s.geoms_state.pos),
+        (ezsim_s.n_geoms, -1, ezsim_s.get_geoms_friction, ezsim_s.set_geoms_friction, ezsim_s.geoms_info.friction),
+        (ezsim_s.n_qs, n_envs, ezsim_s.get_qpos, ezsim_s.set_qpos, ezsim_s.qpos),
+        (ezsim_robot.n_links, n_envs, ezsim_robot.get_links_pos, None, None),
+        (ezsim_robot.n_links, n_envs, ezsim_robot.get_links_quat, None, None),
+        (ezsim_robot.n_links, n_envs, ezsim_robot.get_links_vel, None, None),
+        (ezsim_robot.n_links, n_envs, ezsim_robot.get_links_ang, None, None),
+        (ezsim_robot.n_links, n_envs, ezsim_robot.get_links_acc, None, None),
+        (ezsim_robot.n_links, -1, ezsim_robot.get_links_inertial_mass, ezsim_robot.set_links_inertial_mass, None),
+        (ezsim_robot.n_links, -1, ezsim_robot.get_links_invweight, ezsim_robot.set_links_invweight, None),
+        (ezsim_robot.n_dofs, n_envs, ezsim_robot.get_dofs_control_force, None, None),
+        (ezsim_robot.n_dofs, n_envs, ezsim_robot.get_dofs_force, None, None),
+        (ezsim_robot.n_dofs, n_envs, ezsim_robot.get_dofs_velocity, ezsim_robot.set_dofs_velocity, None),
+        (ezsim_robot.n_dofs, n_envs, ezsim_robot.get_dofs_position, ezsim_robot.set_dofs_position, None),
+        (ezsim_robot.n_dofs, -1, ezsim_robot.get_dofs_force_range, ezsim_robot.set_dofs_force_range, None),
+        (ezsim_robot.n_dofs, -1, ezsim_robot.get_dofs_limit, None, None),
+        (ezsim_robot.n_dofs, -1, ezsim_robot.get_dofs_stiffness, None, None),
+        (ezsim_robot.n_dofs, -1, ezsim_robot.get_dofs_invweight, None, None),
+        (ezsim_robot.n_dofs, -1, ezsim_robot.get_dofs_armature, None, None),
+        (ezsim_robot.n_dofs, -1, ezsim_robot.get_dofs_damping, None, None),
+        (ezsim_robot.n_dofs, -1, ezsim_robot.get_dofs_kp, ezsim_robot.set_dofs_kp, None),
+        (ezsim_robot.n_dofs, -1, ezsim_robot.get_dofs_kv, ezsim_robot.set_dofs_kv, None),
+        (ezsim_robot.n_qs, n_envs, ezsim_robot.get_qpos, ezsim_robot.set_qpos, None),
+        (-1, n_envs, ezsim_robot.get_mass_mat, None, None),
+        (-1, n_envs, ezsim_robot.get_links_net_contact_force, None, None),
+        (-1, n_envs, ezsim_robot.get_pos, ezsim_robot.set_pos, None),
+        (-1, n_envs, ezsim_robot.get_quat, ezsim_robot.set_quat, None),
     ):
         # Check getter and setter without row or column masking
         datas = getter()
@@ -2519,12 +2519,12 @@ def test_data_accessor(n_envs, batched, tol):
         if setter is not None:
             if isinstance(datas, torch.Tensor):
                 # Make sure that the vector is normalized and positive just in case it is a quaternion
-                datas = torch.abs(torch.randn(datas.shape, dtype=gs.tc_float, device="cpu"))
+                datas = torch.abs(torch.randn(datas.shape, dtype=ezsim.tc_float, device="cpu"))
                 datas /= torch.linalg.norm(datas, dim=-1, keepdims=True)
                 setter(datas)
             else:
                 for val in datas:
-                    val[:] = torch.abs(torch.randn(val.shape, dtype=gs.tc_float, device="cpu"))
+                    val[:] = torch.abs(torch.randn(val.shape, dtype=ezsim.tc_float, device="cpu"))
                     val /= torch.linalg.norm(val, dim=-1, keepdims=True)
                 setter(*datas)
         if arg1_max > 0:
@@ -2577,29 +2577,29 @@ def test_data_accessor(n_envs, batched, tol):
     for dofs_idx in (*get_all_supported_masks(0), None):
         for envs_idx in (*(get_all_supported_masks(0) if n_envs > 0 else ()), None):
             unsafe = not any(map(must_cast, (dofs_idx, envs_idx)))
-            dofs_pos = gs_s.get_dofs_position(dofs_idx, envs_idx)
-            dofs_vel = gs_s.get_dofs_velocity(dofs_idx, envs_idx)
-            gs_sim.rigid_solver.control_dofs_position(dofs_pos, dofs_idx, envs_idx)
-            gs_sim.rigid_solver.control_dofs_velocity(dofs_vel, dofs_idx, envs_idx)
+            dofs_pos = ezsim_s.get_dofs_position(dofs_idx, envs_idx)
+            dofs_vel = ezsim_s.get_dofs_velocity(dofs_idx, envs_idx)
+            ezsim_sim.rigid_solver.control_dofs_position(dofs_pos, dofs_idx, envs_idx)
+            ezsim_sim.rigid_solver.control_dofs_velocity(dofs_vel, dofs_idx, envs_idx)
 
 
-@pytest.mark.parametrize("backend", [gs.cpu])
+@pytest.mark.parametrize("backend", [ezsim.cpu])
 def test_mesh_to_heightfield(tmp_path, show_viewer):
     horizontal_scale = 2.0
     path_terrain = os.path.join(get_assets_dir(), "meshes", "terrain_45.obj")
 
-    hf_terrain, xs, ys = gs.utils.terrain.mesh_to_heightfield(path_terrain, spacing=horizontal_scale, oversample=1)
+    hf_terrain, xs, ys = ezsim.utils.terrain.mesh_to_heightfield(path_terrain, spacing=horizontal_scale, oversample=1)
 
     # default heightfield starts at 0, 0, 0
     # translate to the center of the mesh
     translation = np.array([np.nanmin(xs), np.nanmin(ys), 0])
 
     ########################## create a scene ##########################
-    scene = gs.Scene(
-        sim_options=gs.options.SimOptions(
+    scene = ezsim.Scene(
+        sim_options=ezsim.options.SimOptions(
             gravity=(2, 0, -2),
         ),
-        viewer_options=gs.options.ViewerOptions(
+        viewer_options=ezsim.options.ViewerOptions(
             camera_pos=(0, -50, 0),
             camera_lookat=(0, 0, 0),
         ),
@@ -2608,7 +2608,7 @@ def test_mesh_to_heightfield(tmp_path, show_viewer):
     )
 
     terrain_heightfield = scene.add_entity(
-        morph=gs.morphs.Terrain(
+        morph=ezsim.morphs.Terrain(
             horizontal_scale=horizontal_scale,
             vertical_scale=1.0,
             height_field=hf_terrain,
@@ -2617,7 +2617,7 @@ def test_mesh_to_heightfield(tmp_path, show_viewer):
         vis_mode="collision",
     )
     ball = scene.add_entity(
-        gs.morphs.Sphere(
+        ezsim.morphs.Sphere(
             pos=(10, 15, 10),
             radius=1,
         ),
@@ -2634,13 +2634,13 @@ def test_mesh_to_heightfield(tmp_path, show_viewer):
 
 
 @pytest.mark.required
-@pytest.mark.parametrize("backend", [gs.cpu])
+@pytest.mark.parametrize("backend", [ezsim.cpu])
 def test_get_cartesian_space_variables(show_viewer, tol):
-    scene = gs.Scene(
-        sim_options=gs.options.SimOptions(
+    scene = ezsim.Scene(
+        sim_options=ezsim.options.SimOptions(
             gravity=(0.0, 0.0, 0.0),
         ),
-        rigid_options=gs.options.RigidOptions(
+        rigid_options=ezsim.options.RigidOptions(
             # by default, enable_mujoco_compatibility=False
             # the test will fail if enable_mujoco_compatibility=True
             enable_mujoco_compatibility=False,
@@ -2649,7 +2649,7 @@ def test_get_cartesian_space_variables(show_viewer, tol):
     )
 
     box = scene.add_entity(
-        gs.morphs.Box(
+        ezsim.morphs.Box(
             size=(1.0, 1.0, 1.0),
             pos=(0.0, 0.0, 0.0),
         )
@@ -2675,17 +2675,17 @@ def test_get_cartesian_space_variables(show_viewer, tol):
         scene.step()
 
 
-@pytest.mark.parametrize("backend", [gs.cpu])
+@pytest.mark.parametrize("backend", [ezsim.cpu])
 def test_geom_pos_quat(show_viewer, tol):
-    scene = gs.Scene(
-        sim_options=gs.options.SimOptions(
+    scene = ezsim.Scene(
+        sim_options=ezsim.options.SimOptions(
             gravity=(0.0, 0.0, -10.0),
         ),
         show_viewer=show_viewer,
     )
 
     box = scene.add_entity(
-        gs.morphs.Box(
+        ezsim.morphs.Box(
             size=(1.0, 1.0, 1.0),
             pos=(0.0, 0.0, 2.0),
         )
