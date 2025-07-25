@@ -1,6 +1,6 @@
 [submodule "ezsim/ext/LuisaRender"]
 	path = ezsim/ext/LuisaRender
-	url = https://github.com/Alif-01/LuisaRender
+	url = ghpri:Alif-01/LuisaRender.git
 [submodule "ezsim/ext/ParticleMesher"]
 	path = ezsim/ext/ParticleMesher
-	url = https://github.com/ACMLCZH/ParticleMesher
+	url = ghpri:ACMLCZH/ParticleMesher.git

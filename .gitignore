@@ -6,7 +6,7 @@ imgui.ini
 sftp-config.json
 *.mp4
 ezsim/assets/terrain/
-
+log.txt
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
