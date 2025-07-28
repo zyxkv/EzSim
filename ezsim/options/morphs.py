@@ -144,10 +144,18 @@ class Primitive(Morph):
         Whether this morph, if created as `RigidEntity`, requires jacobian and inverse kinematics. Defaults to False. **This is only used for RigidEntity.**
     fixed : bool, optional
         Whether the baselink of the entity should be fixed. Defaults to False. **This is only used for RigidEntity.**
+        contype : int, optional
+        The 32-bit integer bitmasks used for contact filtering of contact pairs. When the contype of one geom and the
+        conaffinity of the other geom share a common bit set to 1, two geoms can collide. Defaults to 0xFFFF.
+    conaffinity : int, optional
+        The 32-bit integer bitmasks used for contact filtering of contact pairs. When the conaffinity of one geom and
+        the contype of the other geom share a common bit set to 1, two geoms can collide. Defaults to 0xFFFF.
     """
 
     # Rigid specific
     fixed: bool = False
+    contype: int = 0xFFFF
+    conaffinity: int = 0xFFFF
 
 
 class Box(Primitive, TetGenMixin):
@@ -182,6 +190,12 @@ class Box(Primitive, TetGenMixin):
         Whether the baselink of the entity should be fixed. Defaults to False. **This is only used for RigidEntity.**
     order : int, optional
         The order of the FEM mesh. Defaults to 1. **This is only used for FEMEntity.**
+    contype : int, optional
+        The 32-bit integer bitmasks used for contact filtering of contact pairs. When the contype of one geom and the
+        conaffinity of the other geom share a common bit set to 1, two geoms can collide. Defaults to 0xFFFF.
+    conaffinity : int, optional
+        The 32-bit integer bitmasks used for contact filtering of contact pairs. When the conaffinity of one geom and
+        the contype of the other geom share a common bit set to 1, two geoms can collide. Defaults to 0xFFFF.
     mindihedral : int, optional
         The minimum dihedral angle in degrees during tetraheralization. Defaults to 10. **This is only used for Volumetric Entity that requires tetraheralization.**
     minratio : float, optional
@@ -244,6 +258,12 @@ class Cylinder(Primitive, TetGenMixin):
         Whether this morph, if created as `RigidEntity`, requires jacobian and inverse kinematics. Defaults to False. **This is only used for RigidEntity.**
     fixed : bool, optional
         Whether the baselink of the entity should be fixed. Defaults to False. **This is only used for RigidEntity.**
+    contype : int, optional
+        The 32-bit integer bitmasks used for contact filtering of contact pairs. When the contype of one geom and the
+        conaffinity of the other geom share a common bit set to 1, two geoms can collide. Defaults to 0xFFFF.
+    conaffinity : int, optional
+        The 32-bit integer bitmasks used for contact filtering of contact pairs. When the conaffinity of one geom and
+        the contype of the other geom share a common bit set to 1, two geoms can collide. Defaults to 0xFFFF.
     order : int, optional
         The order of the FEM mesh. Defaults to 1. **This is only used for FEMEntity.**
     mindihedral : int, optional
@@ -288,6 +308,12 @@ class Sphere(Primitive, TetGenMixin):
         Whether this morph, if created as `RigidEntity`, requires jacobian and inverse kinematics. Defaults to False. **This is only used for RigidEntity.**
     fixed : bool, optional
         Whether the baselink of the entity should be fixed. Defaults to False. **This is only used for RigidEntity.**
+    contype : int, optional
+        The 32-bit integer bitmasks used for contact filtering of contact pairs. When the contype of one geom and the
+        conaffinity of the other geom share a common bit set to 1, two geoms can collide. Defaults to 0xFFFF.
+    conaffinity : int, optional
+        The 32-bit integer bitmasks used for contact filtering of contact pairs. When the conaffinity of one geom and
+        the contype of the other geom share a common bit set to 1, two geoms can collide. Defaults to 0xFFFF.
     order : int, optional
         The order of the FEM mesh. Defaults to 1. **This is only used for FEMEntity.**
     mindihedral : int, optional
@@ -331,6 +357,14 @@ class Plane(Primitive):
         Whether the entity needs to be visualized. Set it to False if you need a invisible object only for collision purposes. Defaults to True. `visualization` and `collision` cannot both be False. **This is only used for RigidEntity.**
     collision : bool, optional
         Whether the entity needs to be considered for collision checking. Defaults to True. `visualization` and `collision` cannot both be False. **This is only used for RigidEntity.**
+    fixed : bool, optional
+        Whether the baselink of the entity should be fixed. Defaults to False. **This is only used for RigidEntity.**
+    contype : int, optional
+        The 32-bit integer bitmasks used for contact filtering of contact pairs. When the contype of one geom and the
+        conaffinity of the other geom share a common bit set to 1, two geoms can collide. Defaults to 0xFFFF.
+    conaffinity : int, optional
+        The 32-bit integer bitmasks used for contact filtering of contact pairs. When the conaffinity of one geom and
+        the contype of the other geom share a common bit set to 1, two geoms can collide. Defaults to 0xFFFF.
     """
 
     fixed: bool = True
@@ -522,6 +556,12 @@ class Mesh(FileMorph, TetGenMixin):
         Whether to use trimesh to load glb files. Defaults to False, in which case pygltflib will be used.
     fixed : bool, optional
         Whether the baselink of the entity should be fixed. Defaults to False. **This is only used for RigidEntity.**
+    contype : int, optional
+        The 32-bit integer bitmasks used for contact filtering of contact pairs. When the contype of one geom and the
+        conaffinity of the other geom share a common bit set to 1, two geoms can collide. Defaults to 0xFFFF.
+    conaffinity : int, optional
+        The 32-bit integer bitmasks used for contact filtering of contact pairs. When the conaffinity of one geom and
+        the contype of the other geom share a common bit set to 1, two geoms can collide. Defaults to 0xFFFF.
     group_by_material : bool, optional
         Whether to group submeshes by their visual material type defined in the asset file. Defaults to True. **This is only used for RigidEntity.**
     order : int, optional
@@ -547,6 +587,8 @@ class Mesh(FileMorph, TetGenMixin):
 
     # Rigid specific
     fixed: bool = False
+    contype: int = 0xFFFF
+    conaffinity: int = 0xFFFF
     group_by_material: bool = True
     merge_submeshes_for_collision: bool = True
 

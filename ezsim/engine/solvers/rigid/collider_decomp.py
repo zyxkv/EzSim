@@ -197,9 +197,10 @@ class Collider:
                         continue
 
                 # contype and conaffinity
-                if links_entity_idx[i_la] == links_entity_idx[i_lb] and not (
-                    (geoms_contype[i_ga] & geoms_conaffinity[i_gb]) or (geoms_contype[i_gb] & geoms_conaffinity[i_ga])
-                ):
+                # if links_entity_idx[i_la] == links_entity_idx[i_lb] and not (
+                #     (geoms_contype[i_ga] & geoms_conaffinity[i_gb]) or (geoms_contype[i_gb] & geoms_conaffinity[i_ga])
+                # ):
+                if not ((geoms_contype[i_ga] & geoms_conaffinity[i_gb]) or (geoms_contype[i_gb] & geoms_conaffinity[i_ga])):
                     continue
 
                 # pair of fixed links wrt the world

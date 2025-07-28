@@ -171,12 +171,16 @@ class Raytracer:
                 )
             )
 
+        #FIXME: unveiled issue "https://github.com/Genesis-Embodied-AI/Genesis/issues/786"
+        # but i fix it by degrade args compat with src/apps/py_interface.cpp:Line 37 init method
         LuisaRenderPy.init(
             context_path=LRP_PATH,
+            log_level=logging_class[self.logging_level],
             context_id=str(ezsim.UID()),
             backend="cuda" if ezsim.platform != "macOS" else "metal",
             device_index=self.device_index,
-            log_level=logging_class[self.logging_level],
+            # cuda_device=self.device_index
+            
         )
 
     def add_mesh_light(self, mesh, color, intensity, pos, quat, revert_dir=False, double_sided=False, beam_angle=180.0):

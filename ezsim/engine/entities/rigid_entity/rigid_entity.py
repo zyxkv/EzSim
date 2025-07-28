@@ -169,8 +169,10 @@ class RigidEntity(Entity):
         if morph.collision:
             g_infos.append(
                 dict(
-                    contype=1,
-                    conaffinity=1,
+                    # contype=1,
+                    # conaffinity=1,
+                    contype=morph.contype,
+                    conaffinity=morph.conaffinity,
                     mesh=ezsim.Mesh.from_trimesh(cmesh, surface=ezsim.surfaces.Collision()),
                     type=geom_type,
                     data=geom_data,
@@ -240,8 +242,10 @@ class RigidEntity(Entity):
             for mesh in meshes:
                 g_infos.append(
                     dict(
-                        contype=1,
-                        conaffinity=1,
+                        # contype=1,
+                        # conaffinity=1,
+                        contype=morph.contype,
+                        conaffinity=morph.conaffinity,
                         mesh=mesh,
                         type=ezsim.GEOM_TYPE.MESH,
                         sol_params=gu.default_solver_params(),
