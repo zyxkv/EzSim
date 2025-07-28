@@ -15,6 +15,9 @@
 [![简体中文版自述文件](https://img.shields.io/badge/简体中文-d9d9d9)](./README_CN.md)
 [![日本語版 README](https://img.shields.io/badge/日本語-d9d9d9)](./README_JA.md)
 
+# EzSim 
+Un simulateur open-source dérivé du projet Genesis, simplifiant les processus de configuration et de simulation afin de proposer un simulateur d’IA incarnée plus convivial.
+
 # Genesis
 
 ## 🔥 Nouveautés
