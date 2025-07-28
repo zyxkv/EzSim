@@ -4,11 +4,25 @@ import ezsim
 
 
 def main():
-    ########################## init ##########################
-    ezsim.init(seed=0, precision="32", logging_level="debug")
+    w = 640
+    h = 480
+    fps = 30
+    video_len = 2  # seconds
 
+    ########################## init ##########################
+    ezsim.init(
+        seed                = 4320,
+        precision           = '32',
+        debug               = False,
+        eps                 = 1e-12,
+        logging_level       = None, #'warning',
+        backend             = ezsim.cuda,
+        theme               = 'dark',
+        logger_verbose_time = False
+    )
     ########################## create a scene ##########################
     scene = ezsim.Scene(
+        show_viewer=False,
         rigid_options=ezsim.options.RigidOptions(enable_collision=False, gravity=(0, 0, 0)),
         viewer_options=ezsim.options.ViewerOptions(
             res=(1920, 1080),
@@ -143,22 +157,26 @@ def main():
     )
     ########################## cameras ##########################
     cam_0 = scene.add_camera(
-        res=(1600, 900),
+        res=(w, h),
         pos=(8.5, 0.0, 1.5),
         lookat=(3.0, 0.0, 0.7),
         fov=60,
-        GUI=True,
+        GUI=False,
         spp=512,
     )
     scene.build()
+    cam_0.start_recording()
 
     ########################## forward + backward twice ##########################
     scene.reset()
-    horizon = 2000
 
-    for i in range(horizon):
+    for i in range(video_len*fps):
         scene.step()
         cam_0.render()
+    cam_0.stop_recording(
+        save_to_filename=f'demo_raytrace_{w}x{h}_{fps}fps.mp4', 
+        fps=fps)
+
 
 
 if __name__ == "__main__":
