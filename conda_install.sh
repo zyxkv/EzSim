@@ -21,6 +21,10 @@ cd EzSim && \
 git submodule update --init --recursive
 pip install -e ".[render]"
 
+
+# ParticleMesherPy (Surface Reconstruction)
+echo "export LD_LIBRARY_PATH=${PWD}/ezsim/ext/ParticleMesher/ParticleMesherPy:$LD_LIBRARY_PATH" >> ~/.bashrc
+source ~/.bashrc
 # LuisaRender
 cd ezsim/ext/LuisaRender
 # make sure git submodule status
@@ -48,9 +52,19 @@ cmake --build build -j $(nproc)
 # pymeshlib Qt5 lib
 # add the following line to ~/.bashrc
 # export LD_LIBRARY_PATH=/home/user/<conda_root>/envs/<ENV_NAME>/lib/python3.10/site-packages/pymeshlab/lib:$LD_LIBRARY_PATH
-
+echo "export LD_LIBRARY_PATH=/home/user/<conda_root>/envs/<ENV_NAME>/lib/python3.10/site-packages/pymeshlab/lib:$LD_LIBRARY_PATH" >> ~/.bashrc
+source ~/.bashrc
 
 # libstdc++.so.6 fix
 cd $CONDA_PREFIX/lib
 mv libstdc++.so.6 libstdc++.so.6.old
 ln -s /usr/lib/x86_64-linux-gnu/libstdc++.so.6 libstdc++.so.6
+
+# usd
+pip install -e .[usd]
+# Omniverse kit is used for USD material baking. Only available for Python 3.10 and GPU backend now.
+# If USD baking is disabled, Genesis only parses materials of "UsdPreviewSurface".
+pip install --extra-index-url https://pypi.nvidia.com/ omniverse-kit
+# To use USD baking, you should set environment variable `OMNI_KIT_ACCEPT_EULA` to accept the EULA.
+# This is a one-time operation, if accepted, it will not ask again.
+export OMNI_KIT_ACCEPT_EULA=yes
