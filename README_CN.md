@@ -1,3 +1,7 @@
+# EzSim 仿真器
+从 Genesis 项目分支出来的开源仿真器，简化配置和仿真流程，构建更好用的具身智能仿真器。
+
+
 ![Genesis](imgs/big_text.png)
 
 ![Teaser](imgs/teaser.png)
@@ -15,8 +19,7 @@
 [![简体中文版自述文件](https://img.shields.io/badge/简体中文-d9d9d9)](./README_CN.md)
 [![日本語版 README](https://img.shields.io/badge/日本語-d9d9d9)](./README_JA.md)
 
-# EzSim 仿真器
-从 Genesis 项目分支出来的开源仿真器，简化配置和仿真流程，构建更好用的具身智能仿真器。
+
 
 # Genesis 通用物理引擎
 

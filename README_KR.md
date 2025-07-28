@@ -1,3 +1,7 @@
+# EzSim 
+Genesis 프로젝트에서 포크된 오픈 소스 시뮬레이터로, 구성 및 시뮬레이션 과정을 간소화하여 더욱 사용자 친화적인 임베디드 AI 시뮬레이터를 제공합니다.
+
+
 ![Genesis](imgs/big_text.png)
 
 ![Teaser](imgs/teaser.png)
@@ -16,8 +20,7 @@
 [![日本語版 README](https://img.shields.io/badge/日本語-d9d9d9)](./README_JA.md)
 
 
-# EzSim 
-Genesis 프로젝트에서 포크된 오픈 소스 시뮬레이터로, 구성 및 시뮬레이션 과정을 간소화하여 더욱 사용자 친화적인 임베디드 AI 시뮬레이터를 제공합니다.
+
 
 # Genesis
 
