@@ -2,15 +2,28 @@ import time
 import argparse
 import numpy as np
 import ezsim
+from ezsim.sensors import SensorDataRecorder, VideoFileWriter
 
+from tqdm import tqdm
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--seconds", "-t", type=float, default=2.0, help="Number of seconds to simulate")
+    parser.add_argument("--dt", type=float, default=1e-2, help="Simulation time step")
+    parser.add_argument(
+        "--substeps",
+        type=int,
+        default=1,
+        help="Number of substeps",
+    )
     parser.add_argument("-v", "--vis", action="store_true", default=False)
     args = parser.parse_args()
 
     ########################## init ##########################
-    ezsim.init(backend=ezsim.gpu)
+    ezsim.init(
+        backend=ezsim.gpu,
+        logger_verbose_time=True
+    )
 
     ########################## create a scene ##########################
     viewer_options = ezsim.options.ViewerOptions(
@@ -23,11 +36,12 @@ def main():
     scene = ezsim.Scene(
         viewer_options=viewer_options,
         rigid_options=ezsim.options.RigidOptions(
-            dt=0.01,
+            dt=args.dt,
             # gravity=(0, 0, 0),
         ),
         vis_options=ezsim.options.VisOptions(
             show_link_frame=False,
+            show_world_frame=False,
         ),
         show_viewer=args.vis,
     )
@@ -43,6 +57,18 @@ def main():
             pos=(0, 0, 1.0),
         ),
     )
+    ########################## add sensors ##########################
+    data_recorder = SensorDataRecorder(step_dt=args.dt)
+    # Add camera for visualization
+    cam = scene.add_camera(
+        res=(1280, 960),
+        pos=(0, -3.5, 2.5),
+        lookat=(0.0, 0.0, 0.5),
+        fov=70,
+        GUI=args.vis,
+    )
+    # we can also record the camera video using data_recorder
+    data_recorder.add_sensor(cam, VideoFileWriter(filename="acc_duck.mp4"))
     ########################## build ##########################
     scene.build()
     dofs_idx = duck.base_joint.dofs_idx
@@ -57,23 +83,37 @@ def main():
     #     pos,
     #     dofs_idx,
     # )
-    for i in range(1000):
-        scene.step()
+    data_recorder.start_recording()
+    try:
+        steps = int(args.seconds / args.dt)
+        for _ in tqdm(range(steps), total=steps):
+            scene.step()
 
-        # visualize
-        links_acc = duck.get_links_acc()
-        links_pos = duck.get_links_pos()
-        scene.clear_debug_objects()
-        for i in range(links_acc.shape[0]):
-            link_pos = links_pos[i]
-            link_acc = links_acc[i]
-            # link_acc *= 100
-            scene.draw_debug_arrow(
-                pos=link_pos.tolist(),
-                vec=link_acc.tolist(),
-            )
-        print(link_acc, link_acc.norm())
-        time.sleep(0.1)
+            # visualize
+            # links_acc = duck.get_links_acc()
+            links_acc = duck.get_links_accelerometer_data()
+            links_pos = duck.get_links_pos()
+            
+            for i in range(links_acc.shape[0]):
+                link_pos = links_pos[i]
+                link_acc = links_acc[i]
+                link_acc *= 1000 if link_acc.norm() < 0.001 else 1/link_acc.norm() # scale for better visualization
+                scene.draw_debug_arrow(
+                    pos=link_pos.tolist(),
+                    vec=link_acc.tolist(),
+                )
+            # print(link_acc, link_acc.norm())
+            data_recorder.step()
+            scene.clear_debug_objects()
+            time.sleep(0.03)
+    except KeyboardInterrupt:
+        ezsim.logger.info("Simulation interrupted, exiting.")
+    finally:
+        ezsim.logger.info("Simulation finished.")
+
+        data_recorder.stop_recording()
+
+        # print("Max force recorded:", max_observed_force_magnitude)
 
 
 if __name__ == "__main__":

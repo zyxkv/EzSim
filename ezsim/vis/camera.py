@@ -1,3 +1,4 @@
+from typing import Literal
 import inspect
 import os
 import time
@@ -98,6 +99,10 @@ class Camera(Sensor):
 
         self._in_recording = False
         self._recorded_imgs = []
+        # DEBUG: recorded depth, segmentation, and normal images
+        self._recorded_depths = []
+        self._recorded_segmentations = []
+        self._recorded_normals = []
 
         self._init_pos = np.array(pos)
 
@@ -274,9 +279,10 @@ class Camera(Sensor):
             else:
                 seg_arr = seg_idxc_arr
 
+        depth_img = None
         # succeed rendering, and display image
         if self._GUI and self._visualizer.connected_to_display:
-            title = f"Genesis - Camera {self._idx}"
+            title = f"EzSim - Camera {self._idx}"
 
             if rgb:
                 rgb_img = rgb_arr[..., [2, 1, 0]]
@@ -295,6 +301,8 @@ class Camera(Sensor):
                 depth_img = (depth_normalized * 255).astype(np.uint8)
                 if self._other_stacked:
                     depth_img = depth_img[0]
+                if self._in_recording:
+                   self._recorded_depths.append(depth_img[..., None].repeat(3, axis=-1))
 
                 cv2.imshow(f"{title + other_env} [Depth]", depth_img)
 
@@ -314,8 +322,21 @@ class Camera(Sensor):
 
             cv2.waitKey(1)
 
-        if self._in_recording and rgb_arr is not None:
-            self._recorded_imgs.append(rgb_arr)
+        if self._in_recording:
+            if rgb_arr is not None:
+                self._recorded_imgs.append(rgb_arr)
+            if depth_arr is not None:
+                if depth_img is None:
+                    depth_min = depth_arr.min()
+                    depth_max = depth_arr.max()
+                    depth_normalized = (depth_arr - depth_min) / (depth_max - depth_min)
+                    depth_img = (depth_normalized * 255).astype(np.uint8)
+                    self._recorded_depths.append(depth_img[...,None].repeat(3, axis=-1))
+            if seg_arr is not None and colorize_seg:
+                self._recorded_segmentations.append(seg_color_arr[..., [2, 1, 0]])
+            if normal_arr is not None:
+                self._recorded_normals.append(normal_arr[..., [2, 1, 0]])
+
 
         return rgb_arr, depth_arr, seg_arr, normal_arr
 
@@ -588,8 +609,10 @@ class Camera(Sensor):
             ezsim.raise_exception("Recording not started.")
         self._in_recording = False
 
+
+    #FIXME: add full support for preset "ultrafast, superfast, veryfast, faster, medium, slow, slower, veryslow, placebo"
     @ezsim.assert_built
-    def stop_recording(self, save_to_filename=None, fps=60):
+    def stop_recording(self, save_to_filename=None, fps=60, preset:Literal['ultrafast','superfast','veryfast','faster']="ultrafast"):
         """
         Stop recording on the camera. Once this is called, all the rgb images stored so far will be saved to a video file. If `save_to_filename` is None, the video file will be saved with the name '{caller_file_name}_cam_{camera.idx}.mp4'.
         If `env_separate_rigid` in `VisOptions` is set to True, each environment will record and save a video separately. The filenames will be identified by the indices of the environments.
@@ -616,11 +639,19 @@ class Camera(Sensor):
             for env_idx in self._visualizer._context.rendered_envs_idx:
                 env_imgs = [imgs[env_idx] for imgs in self._recorded_imgs]
                 env_name, env_ext = os.path.splitext(save_to_filename)
-                ezsim.tools.animate(env_imgs, f"{env_name}_{env_idx}{env_ext}", fps)
+                ezsim.tools.animate(env_imgs, f"{env_name}_{env_idx}{env_ext}", fps, preset=preset)
+            #TODO: maybe add support for depth, segmentation and normal recording in stacked mode
         else:
-            ezsim.tools.animate(self._recorded_imgs, save_to_filename, fps)
+            ezsim.tools.animate(self._recorded_imgs, save_to_filename, fps,preset=preset)
+            ezsim.tools.animate(self._recorded_depths, f"{os.path.splitext(save_to_filename)[0]}_depth.mp4", fps, preset)
+            ezsim.tools.animate(self._recorded_segmentations, f"{os.path.splitext(save_to_filename)[0]}_segmentation.mp4", fps, preset)
+            ezsim.tools.animate(self._recorded_normals, f"{os.path.splitext(save_to_filename)[0]}_normal.mp4", fps, preset)
 
         self._recorded_imgs.clear()
+        self._recorded_depths.clear()
+        self._recorded_segmentations.clear()
+        self._recorded_normals.clear()
+
         self._in_recording = False
 
     def _repr_brief(self):

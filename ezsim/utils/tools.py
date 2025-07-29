@@ -10,7 +10,7 @@ from PIL import Image
 import ezsim
 
 
-def animate(imgs, filename=None, fps=60):
+def animate(imgs, filename=None, fps=60, preset="ultrafast"):
     """
     Create a video from a list of images.
 
@@ -38,7 +38,7 @@ def animate(imgs, filename=None, fps=60):
         fps=fps,
         logger=None,
         codec="libx264",
-        preset="ultrafast",
+        preset=preset,
         # ffmpeg_params=["-crf", "0"],
     )
     ezsim.logger.info("Video saved.")

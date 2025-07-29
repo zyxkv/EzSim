@@ -1,18 +1,27 @@
 import argparse
 import threading
-
+import time
 import numpy as np
 
 import ezsim
+from ezsim.sensors import SensorDataRecorder, VideoFileWriter
+from tqdm import tqdm
 
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--dt", type=float, default=1e-2, help="Simulation time step")
+    parser.add_argument(
+        "--substeps",
+        type=int,
+        default=1,
+        help="Number of substeps",
+    )
     parser.add_argument("-v", "--vis", action="store_true", default=False)
     args = parser.parse_args()
 
     ########################## init ##########################
-    ezsim.init(backend=ezsim.cpu)
+    ezsim.init(backend=ezsim.gpu,logger_verbose_time=True)
 
     ########################## create a scene ##########################
     viewer_options = ezsim.options.ViewerOptions(
@@ -24,7 +33,14 @@ def main():
 
     scene = ezsim.Scene(
         sim_options=ezsim.options.SimOptions(
-            dt=0.01,
+            dt=args.dt,
+        ),
+        rigid_options=ezsim.options.RigidOptions(
+            dt=args.dt,
+            # gravity=(0, 0, 0),
+        ),
+        vis_options=ezsim.options.VisOptions(
+            show_world_frame=False,
         ),
         viewer_options=viewer_options,
         show_viewer=args.vis,
@@ -37,13 +53,24 @@ def main():
     drone = scene.add_entity(
         morph=ezsim.morphs.Drone(
             file="urdf/drones/cf2x.urdf",
-            pos=(0.0, 0, 0.02),
+            scale=5.0,
+            pos=(0.0, 0, 0.2),
         ),
     )
-
+    ########################## add sensors ##########################
+    data_recorder = SensorDataRecorder(step_dt=args.dt)
+    # Add camera for visualization
+    cam = scene.add_camera(
+        res=(1280, 960),
+        pos=(5, 0.0, 6.5),
+        lookat=(0.0, 0.0, 0.5),
+        fov=45,
+        GUI=args.vis,
+    )
+    # we can also record the camera video using data_recorder
+    data_recorder.add_sensor(cam, VideoFileWriter(filename="drone_fly.mp4"))
     ########################## build ##########################
     scene.build()
-
     traj = np.array(
         [
             [1.0, 1.0, 0.98824805, 1.0],
@@ -201,12 +228,31 @@ def main():
         ],
         dtype=np.float32,
     )
+    data_recorder.start_recording()
+    try:
+        for i in range(len(traj)):
+            # 14468 is hover rpm
+            drone.set_propellels_rpm((1 + 0.05 * traj[i]) * 12 * 14468.429183500699)
+            scene.step()
+            links_acc = drone.get_links_accelerometer_data()
+            links_pos = drone.get_links_pos()
+            for i in range(links_acc.shape[0]):
+                link_pos = links_pos[i]
+                link_acc = links_acc[i]
+                link_acc *= 1000 if link_acc.norm() < 0.001 else 0.02 # scale for better visualization
+                scene.draw_debug_arrow(
+                    pos=link_pos.tolist(),
+                    vec=link_acc.tolist(),
+                )
+            data_recorder.step()
+            scene.clear_debug_objects()
+            time.sleep(0.03)
+    except KeyboardInterrupt:
+        ezsim.logger.info("Simulation interrupted, exiting.")
+    finally:
+        ezsim.logger.info("Simulation finished.")
 
-    for i in range(len(traj)):
-        # 14468 is hover rpm
-        drone.set_propellels_rpm((1 + 0.05 * traj[i]) * 14468.429183500699)
-        scene.step()
-
+        data_recorder.stop_recording()
 
 if __name__ == "__main__":
     main()

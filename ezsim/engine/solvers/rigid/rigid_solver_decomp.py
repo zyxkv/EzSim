@@ -5424,6 +5424,7 @@ class RigidSolver(Solver):
                     self.links_state.i_pos[links_idx[i_l_], envs_idx[i_b_]]
                 )
             if ti.static(ref == 2):  # link's origin
+                # \mathbf{v}_P = \mathbf{v}_C + \boldsymbol{\omega} \times \mathbf{r}_{P/C}
                 vel = vel + self.links_state.cd_ang[links_idx[i_l_], envs_idx[i_b_]].cross(
                     self.links_state.pos[links_idx[i_l_], envs_idx[i_b_]]
                     - self.links_state.COM[links_idx[i_l_], envs_idx[i_b_]]
@@ -5456,16 +5457,36 @@ class RigidSolver(Solver):
         for i_l_, i_b_ in ti.ndrange(links_idx.shape[0], envs_idx.shape[0]):
             i_l = links_idx[i_l_]
             i_b = envs_idx[i_b_]
-
+            # Analysis of rigid body kinematics for point P acceleration:
+            # when 𝐫_{P/C} is constant
+            #   d/dt(𝛚 × 𝐫_{P/C}) = 𝛚̇ × 𝐫_{P/C} + 𝛚 × d/dt(𝐫_{P/C})
+            # when 𝐫_{P/C} = 𝐫0_{P/C} + ∫ (𝐯_P - 𝐯_C) dt
+            #   d/dt(𝛚 × 𝐫_{P/C}) = 𝛚̇ × 𝐫_{P/C} + 𝛚 × d/dt(𝐫_{P/C})
+            # Two scenarios exist:
+            # (1) Point P with relative motion to rigid body (e.g., fluid particles, sliding objects):
+            #     𝐚_P = 𝐚_C + 𝛚̇ × 𝐫_{P/C} + 𝛚 × (𝐯_C + 𝛚 × 𝐫_{P/C})
+            #     where 𝛚 × 𝐯_C is the Coriolis acceleration term
+            #
+            # (2) Point P rigidly attached to the body (e.g., IMU sensors, structural points):
+            #     𝐚_P = 𝐚_C + 𝛚̇ × 𝐫_{P/C} + 𝛚 × (𝛚 × 𝐫_{P/C})
+            #     where the Coriolis term vanishes because P has no relative motion
+            #
+            # Current implementation uses scenario (1), but for rigid body simulation,
+            # scenario (2) is more appropriate for link points and IMU sensors.
+            #
+            # QUESTION: Should we switch to scenario (2) for rigid body points?
             # Compute links spatial acceleration expressed at links origin in world coordinates
-            cpos = self.links_state.pos[i_l, i_b] - self.links_state.COM[i_l, i_b]
-            acc_ang = self.links_state.cacc_ang[i_l, i_b]
-            acc_lin = self.links_state.cacc_lin[i_l, i_b] + acc_ang.cross(cpos)
+            cpos = self.links_state.pos[i_l, i_b] - self.links_state.COM[i_l, i_b] # 𝐫_{P/C}
+            acc_ang = self.links_state.cacc_ang[i_l, i_b]                          # 𝛚̇
+            acc_lin = self.links_state.cacc_lin[i_l, i_b] + acc_ang.cross(cpos)    # 𝐚_C + 𝛚̇ × 𝐫_{P/C}
 
             # Compute links classical linear acceleration expressed at links origin in world coordinates
-            ang = self.links_state.cd_ang[i_l, i_b]
-            vel = self.links_state.cd_vel[i_l, i_b] + ang.cross(cpos)
-            acc_classic_lin = acc_lin + ang.cross(vel)
+            ang = self.links_state.cd_ang[i_l, i_b]                     # 𝛚
+            # （1）
+            # vel = self.links_state.cd_vel[i_l, i_b] + ang.cross(cpos)   # 𝐯_C + 𝛚 × 𝐫_{P/C}
+            # acc_classic_lin = acc_lin + ang.cross(vel)                  # 𝐚_C + 𝛚̇ × 𝐫_{P/C} + 𝛚 × (𝐯_C + 𝛚 × 𝐫_{P/C})
+            # （2）
+            acc_classic_lin = acc_lin + ang.cross(ang.cross(cpos))      # 𝐚_C + 𝛚̇ × 𝐫_{P/C} + 𝛚 × (𝛚 × 𝐫_{P/C})
 
             # Mimick IMU accelerometer signal if requested
             if mimick_imu:
@@ -5481,6 +5502,176 @@ class RigidSolver(Solver):
     def get_links_acc_ang(self, links_idx=None, envs_idx=None, *, unsafe=False):
         tensor = ti_field_to_torch(self.links_state.cacc_ang, envs_idx, links_idx, transpose=True, unsafe=unsafe)
         return tensor.squeeze(0) if self.n_envs == 0 else tensor
+
+    def get_links_vel_body(self, links_idx=None, envs_idx=None, *, 
+                          ref: Literal["link_origin", "link_com", "root_com"] = "link_origin", 
+                          unsafe=False):
+        """
+        Get linear velocity in body frame.
+        
+        This function computes the linear velocity at the specified reference point
+        and transforms it to the body (local) coordinate frame.
+        
+        Parameters
+        ----------
+        links_idx : array-like, optional
+            Indices of links to query. If None, queries all links.
+        envs_idx : array-like, optional  
+            Environment indices to query. If None, queries all environments.
+        ref : str, optional
+            Reference point for velocity calculation. Options:
+            - "link_origin": Velocity at link coordinate frame origin
+            - "link_com": Velocity at link center of mass
+            - "root_com": Velocity at root center of mass  
+        unsafe : bool, optional
+            Skip safety checks for performance.
+            
+        Returns
+        -------
+        torch.Tensor
+            Linear velocity in body frame with shape (n_envs, n_links, 3) or (n_links, 3)
+        """
+        _tensor, links_idx, envs_idx = self._sanitize_2D_io_variables(
+            None, links_idx, self.n_links, 3, envs_idx, idx_name="links_idx", unsafe=unsafe
+        )
+        tensor = _tensor.unsqueeze(0) if self.n_envs == 0 else _tensor
+        if ref == "root_com":
+            ref = 0
+        elif ref == "link_com":
+            ref = 1
+        elif ref == "link_origin":
+            ref = 2
+        else:
+            raise ValueError("'ref' must be either 'link_origin', 'link_com', or 'root_com'.")
+        self._kernel_get_links_vel_body(tensor, links_idx, envs_idx, ref)
+        return _tensor
+
+    @ti.kernel
+    def _kernel_get_links_vel_body(
+        self,
+        tensor: ti.types.ndarray(),
+        links_idx: ti.types.ndarray(),
+        envs_idx: ti.types.ndarray(),
+        ref: ti.template(),
+    ):
+        """Kernel for computing linear velocity in body frame"""
+        ti.loop_config(serialize=self._para_level < ezsim.PARA_LEVEL.PARTIAL)
+        for i_l_, i_b_ in ti.ndrange(links_idx.shape[0], envs_idx.shape[0]):
+            i_l = links_idx[i_l_]
+            i_b = envs_idx[i_b_]
+            
+            # Get velocity in world frame at center of mass
+            vel_world = self.links_state.cd_vel[i_l, i_b]
+
+            # Translate to get the velocity expressed at a different position if necessary
+            if ti.static(ref == 1):  # link's CoM
+                vel_world = vel_world + self.links_state.cd_ang[i_l, i_b].cross(
+                    self.links_state.i_pos[i_l, i_b]
+                )
+            if ti.static(ref == 2):  # link's origin
+                vel_world = vel_world + self.links_state.cd_ang[i_l, i_b].cross(
+                    self.links_state.pos[i_l, i_b] - self.links_state.COM[i_l, i_b]
+                )
+
+            # Transform to body frame
+            vel_body = gu.ti_inv_transform_by_quat(vel_world, self.links_state.quat[i_l, i_b])
+
+            for i in ti.static(range(3)):
+                tensor[i_b_, i_l_, i] = vel_body[i]
+
+    def get_links_ang_body(self, links_idx=None, envs_idx=None, *, unsafe=False):
+        """
+        Get angular velocity in body frame.
+        
+        Parameters
+        ----------
+        links_idx : array-like, optional
+            Indices of links to query. If None, queries all links.
+        envs_idx : array-like, optional
+            Environment indices to query. If None, queries all environments.
+        unsafe : bool, optional
+            Skip safety checks for performance.
+            
+        Returns
+        -------
+        torch.Tensor
+            Angular velocity in body frame with shape (n_envs, n_links, 3) or (n_links, 3)
+        """
+        _tensor, links_idx, envs_idx = self._sanitize_2D_io_variables(
+            None, links_idx, self.n_links, 3, envs_idx, idx_name="links_idx", unsafe=unsafe
+        )
+        tensor = _tensor.unsqueeze(0) if self.n_envs == 0 else _tensor
+        self._kernel_get_links_ang_body(tensor, links_idx, envs_idx)
+        return _tensor
+
+    @ti.kernel
+    def _kernel_get_links_ang_body(
+        self,
+        tensor: ti.types.ndarray(),
+        links_idx: ti.types.ndarray(),
+        envs_idx: ti.types.ndarray(),
+    ):
+        """Kernel for computing angular velocity in body frame"""
+        ti.loop_config(serialize=self._para_level < ezsim.PARA_LEVEL.PARTIAL)
+        for i_l_, i_b_ in ti.ndrange(links_idx.shape[0], envs_idx.shape[0]):
+            i_l = links_idx[i_l_]
+            i_b = envs_idx[i_b_]
+
+            # Get angular velocity in world frame
+            ang_world = self.links_state.cd_ang[i_l, i_b]
+
+            # Transform to body frame
+            ang_body = gu.ti_inv_transform_by_quat(ang_world, self.links_state.quat[i_l, i_b])
+
+            for i in ti.static(range(3)):
+                tensor[i_b_, i_l_, i] = ang_body[i]
+
+    def get_links_acc_ang_body(self, links_idx=None, envs_idx=None, *, unsafe=False):
+        """
+        Get angular acceleration in body frame.
+        
+        Parameters
+        ----------
+        links_idx : array-like, optional
+            Indices of links to query. If None, queries all links.
+        envs_idx : array-like, optional
+            Environment indices to query. If None, queries all environments.
+        unsafe : bool, optional
+            Skip safety checks for performance.
+            
+        Returns
+        -------
+        torch.Tensor
+            Angular acceleration in body frame with shape (n_envs, n_links, 3) or (n_links, 3)
+        """
+        _tensor, links_idx, envs_idx = self._sanitize_2D_io_variables(
+            None, links_idx, self.n_links, 3, envs_idx, idx_name="links_idx", unsafe=unsafe
+        )
+        tensor = _tensor.unsqueeze(0) if self.n_envs == 0 else _tensor
+        self._kernel_get_links_acc_ang_body(tensor, links_idx, envs_idx)
+        return _tensor
+
+    @ti.kernel
+    def _kernel_get_links_acc_ang_body(
+        self,
+        tensor: ti.types.ndarray(),
+        links_idx: ti.types.ndarray(),
+        envs_idx: ti.types.ndarray(),
+    ):
+        """Kernel for computing angular acceleration in body frame"""
+        ti.loop_config(serialize=self._para_level < ezsim.PARA_LEVEL.PARTIAL)
+        for i_l_, i_b_ in ti.ndrange(links_idx.shape[0], envs_idx.shape[0]):
+            i_l = links_idx[i_l_]
+            i_b = envs_idx[i_b_]
+
+            # Get angular acceleration in world frame
+            acc_ang_world = self.links_state.cacc_ang[i_l, i_b]
+
+            # Transform to body frame
+            acc_ang_body = gu.ti_inv_transform_by_quat(acc_ang_world, self.links_state.quat[i_l, i_b])
+
+            for i in ti.static(range(3)):
+                tensor[i_b_, i_l_, i] = acc_ang_body[i]
 
     def get_links_root_COM(self, links_idx=None, envs_idx=None, *, unsafe=False):
         """

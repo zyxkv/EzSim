@@ -22,10 +22,15 @@ class EzSimFormatter(logging.Formatter):
 
         if verbose_time:
             self.TIME = "%(asctime)s.%(msecs)03d"
-            self.DATE_FORMAT = "%y-%m-%d %H:%M:%S"
+            self.TIMESTAMP = "%(created).3f"  # 使用统一的毫秒级时间戳
+            self.TIMESTAMP_length = 17  # 例如：1717991234.123 (13位整数+1点+3位小数)
+            # self.DATE_FORMAT = "%y-%m-%d %H:%M:%S"
+            self.DATE_FORMAT = "%H:%M:%S"  # 包含毫秒
             self.INFO_length = 41
         else:
             self.TIME = "%(asctime)s"
+            self.TIMESTAMP = "%(created).3f"  # 使用统一的毫秒级时间戳
+            self.TIMESTAMP_length = 17  # 例如：1717991234.123 (13位整数+1点+3位小数)
             self.DATE_FORMAT = "%H:%M:%S"
             self.INFO_length = 28
 
@@ -38,7 +43,7 @@ class EzSimFormatter(logging.Formatter):
     def colored_fmt(self, color):
         self.last_color = color
         # return f"{color}[EzS] [{self.TIME}] [{self.LEVEL}] {self.MESSAGE}{formats.RESET}"
-        return f"{color}[EzS] [{self.LEVEL}] {self.MESSAGE}{formats.RESET}"
+        return f"{color}[EzS] [{self.TIME}] [{self.LEVEL}] {self.MESSAGE}{formats.RESET}"
     
     def extra_fmt(self, msg):
         msg = msg.replace("~~~~<", colors.MINT + formats.BOLD + formats.ITALIC)

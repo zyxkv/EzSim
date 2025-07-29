@@ -250,7 +250,7 @@ def init(
     exit_callbacks = []
 
     logger.info(
-        f"♾️ EzSim initialized. 🔖 version: ~~<{__version__}>~~, 🌱 seed: ~~<{seed}>~~, 📏 precision: '~~<{precision}>~~', 🐛 debug: ~~<{debug}>~~, 🎨 theme: '~~<{theme}>~~'."
+        f"♾️  EzSim initialized. 🔖 version: ~~<{__version__}>~~, 🌱 seed: ~~<{seed}>~~, 📏 precision: '~~<{precision}>~~', 🐛 debug: ~~<{debug}>~~, 🎨 theme: '~~<{theme}>~~'."
     )
 
     _initialized = True

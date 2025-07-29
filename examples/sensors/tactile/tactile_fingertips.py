@@ -135,7 +135,10 @@ def main():
     sensors = []
     for link in hand.links:
         if link.name in sensorized_link_names:
-            sensor = RigidContactForceGridSensor(entity=hand, link_idx=link.idx, grid_size=(2, 2, 2))
+            sensor = RigidContactForceGridSensor(
+                    entity=hand, 
+                    link_idx=link.idx, 
+                    grid_size=(2, 2, 2))
             data_recorder.add_sensor(
                 sensor,
                 NPZFileWriter(filename=f"{link.name}_contact_forces.npz"),
