@@ -247,9 +247,9 @@ def init_simulators(ezsim_sim, mj_sim=None, qpos=None, qvel=None):
         ezsim_robot.set_dofs_velocity(qvel)
     # TODO: This should be moved in `set_state`, `set_qpos`, `set_dofs_position`, `set_dofs_velocity`
     ezsim_sim.rigid_solver.dofs_state.qf_constraint.fill(0.0)
-    ezsim_sim.rigid_solver._kernel_forward_dynamics()
+    ezsim_sim.rigid_solver._func_forward_dynamics()
     ezsim_sim.rigid_solver._func_constraint_force()
-    ezsim_sim.rigid_solver._kernel_update_acc()
+    ezsim_sim.rigid_solver._func_update_acc()
 
     if ezsim_sim.scene.visualizer:
         ezsim_sim.scene.visualizer.update()
