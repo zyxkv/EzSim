@@ -32,12 +32,12 @@ def main():
             camera_fov=40,
             max_FPS=200,
         ),
-        show_viewer=args.vis,
         rigid_options=ezsim.options.RigidOptions(
             enable_joint_limit=False,
             enable_collision=False,
             gravity=(0, 0, -0),
         ),
+        show_viewer=args.vis,
         show_FPS=False,
     )
 

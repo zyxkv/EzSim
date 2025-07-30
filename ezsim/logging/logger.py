@@ -9,7 +9,7 @@ from .time_elapser import TimeElapser
 
 
 class EzSimFormatter(logging.Formatter):
-    def __init__(self, verbose_time=True):
+    def __init__(self, log_time=True, verbose_time=True):
         super(EzSimFormatter, self).__init__()
 
         self.mapping = {
@@ -19,7 +19,7 @@ class EzSimFormatter(logging.Formatter):
             logging.ERROR: colors.RED,
             logging.CRITICAL: colors.RED,
         }
-
+        self.log_time = log_time
         if verbose_time:
             self.TIME = "%(asctime)s.%(msecs)03d"
             self.TIMESTAMP = "%(created).3f"  # 使用统一的毫秒级时间戳
@@ -42,8 +42,12 @@ class EzSimFormatter(logging.Formatter):
 
     def colored_fmt(self, color):
         self.last_color = color
+        if self.log_time:
+            # return f"{color}[EzS] [{self.TIME}] [{self.LEVEL}] {self.MESSAGE}{formats.RESET}"
+            return f"{color}[EzS] [{self.TIME}] [{self.LEVEL}] {self.MESSAGE}{formats.RESET}"
+        # 如果不需要时间戳，则只返回消息内容
         # return f"{color}[EzS] [{self.TIME}] [{self.LEVEL}] {self.MESSAGE}{formats.RESET}"
-        return f"{color}[EzS] [{self.TIME}] [{self.LEVEL}] {self.MESSAGE}{formats.RESET}"
+        return f"{color}[EzS] [{self.LEVEL}] {self.MESSAGE}{formats.RESET}"
     
     def extra_fmt(self, msg):
         msg = msg.replace("~~~~<", colors.MINT + formats.BOLD + formats.ITALIC)
@@ -68,14 +72,14 @@ class EzSimFormatter(logging.Formatter):
 
 
 class Logger:
-    def __init__(self, logging_level, verbose_time):
+    def __init__(self, logging_level,log_time,verbose_time):
         if isinstance(logging_level, str):
             logging_level = logging_level.upper()
 
         self._logger = logging.getLogger("ezsim")
         self._logger.setLevel(logging_level)
 
-        self._formatter = EzSimFormatter(verbose_time)
+        self._formatter = EzSimFormatter(log_time,verbose_time)
 
         self._handler = logging.StreamHandler(sys.stdout)
         self._handler.setLevel(logging_level)

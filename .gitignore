@@ -156,3 +156,4 @@ IMU_Design.md
 *_code_example.py
 test_body_frame_functions.py
 /tests/test_imu_sensor.py
+ext_assets/

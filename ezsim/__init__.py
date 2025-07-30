@@ -46,6 +46,7 @@ def init(
     precision="32",
     debug=False,
     eps=1e-15,
+    log_time=True,
     logging_level=None,
     backend=None,
     theme="dark",
@@ -68,7 +69,7 @@ def init(
     global logger
     if logging_level is None:
         logging_level = _logging.DEBUG if debug else _logging.INFO
-    logger = Logger(logging_level, logger_verbose_time)
+    logger = Logger(logging_level, log_time, logger_verbose_time)
     atexit.register(destroy)
 
     # Must delay raising exception after logger initialization

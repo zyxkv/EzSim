@@ -25,14 +25,11 @@ def main():
             camera_lookat=(5.0, 5.0, 0.0),
             camera_fov=40,
         ),
-        show_viewer=args.vis,
         rigid_options=ezsim.options.RigidOptions(
             dt=0.01,
             constraint_solver=ezsim.constraint_solver.Newton,
         ),
-        vis_options=ezsim.options.VisOptions(
-            # geom_type='sdf',
-        ),
+        show_viewer=args.vis,
     )
 
     horizontal_scale = 0.25

@@ -1410,7 +1410,7 @@ class RigidSolver(Solver):
                         if tensor.shape[0] != len(envs_idx):
                             ezsim.raise_exception(
                                 f"Invalid input shape: {tensor.shape}. First dimension of the input tensor does not match "
-                                "length of `envs_idx` (or `scene.n_envs` if `envs_idx` is None)."
+                                f"length ({len(envs_idx)}) of `envs_idx` (or `scene.n_envs` if `envs_idx` is None)."
                             )
                     else:
                         ezsim.raise_exception(
@@ -4778,22 +4778,33 @@ def kernel_update_verts_for_geom(
 ):
     _B = geoms_state.verts_updated.shape[1]
     for i_b in range(_B):
-        if not geoms_state.verts_updated[i_g, i_b]:
-            if geoms_info.is_free[i_g]:
-                for i_v in range(geoms_info.vert_start[i_g], geoms_info.vert_end[i_g]):
-                    verts_state_idx = verts_info.verts_state_idx[i_v]
-                    free_verts_state.pos[verts_state_idx, i_b] = gu.ti_transform_by_trans_quat(
-                        verts_info.init_pos[i_v], geoms_state.pos[i_g, i_b], geoms_state.quat[i_g, i_b]
-                    )
-                geoms_state.verts_updated[i_g, i_b] = 1
-            elif i_b == 0:
-                for i_v in range(geoms_info.vert_start[i_g], geoms_info.vert_end[i_g]):
-                    verts_state_idx = verts_info.verts_state_idx[i_v]
-                    fixed_verts_state.pos[verts_state_idx] = gu.ti_transform_by_trans_quat(
-                        verts_info.init_pos[i_v], geoms_state.pos[i_g, i_b], geoms_state.quat[i_g, i_b]
-                    )
-                geoms_state.verts_updated[i_g, 0] = 1
+        func_update_verts_for_geom(i_g, i_b, geoms_state, geoms_info, verts_info, free_verts_state, fixed_verts_state)
 
+@ti.func
+def func_update_verts_for_geom(
+    i_g: ti.i32,
+    i_b: ti.i32,
+    geoms_state: array_class.GeomsState,
+    geoms_info: array_class.GeomsInfo,
+    verts_info: array_class.VertsInfo,
+    free_verts_state: array_class.FreeVertsState,
+    fixed_verts_state: array_class.FixedVertsState,
+):
+    if not geoms_state.verts_updated[i_g, i_b]:
+        if geoms_info.is_free[i_g]:
+            for i_v in range(geoms_info.vert_start[i_g], geoms_info.vert_end[i_g]):
+                verts_state_idx = verts_info.verts_state_idx[i_v]
+                free_verts_state.pos[verts_state_idx, i_b] = gu.ti_transform_by_trans_quat(
+                    verts_info.init_pos[i_v], geoms_state.pos[i_g, i_b], geoms_state.quat[i_g, i_b]
+                )
+            geoms_state.verts_updated[i_g, i_b] = 1
+        elif i_b == 0:
+            for i_v in range(geoms_info.vert_start[i_g], geoms_info.vert_end[i_g]):
+                verts_state_idx = verts_info.verts_state_idx[i_v]
+                fixed_verts_state.pos[verts_state_idx] = gu.ti_transform_by_trans_quat(
+                    verts_info.init_pos[i_v], geoms_state.pos[i_g, i_b], geoms_state.quat[i_g, i_b]
+                )
+            geoms_state.verts_updated[i_g, 0] = 1
 
 @ti.func
 def func_update_all_verts(self):
@@ -6521,8 +6532,8 @@ def kernel_get_links_acc(
         # Compute links classical linear acceleration expressed at links origin in world coordinates
         ang = links_state.cd_ang[i_l, i_b]                              # 𝛚
         # （1）
-        vel = links_state.cd_vel[i_l, i_b] + ang.cross(cpos)            # 𝐯_C + 𝛚 × 𝐫_{P/C}
-        acc_classic_lin = acc_lin + ang.cross(vel)                      # 𝐚_C + 𝛚̇ × 𝐫_{P/C} + 𝛚 × (𝐯_C + 𝛚 × 𝐫_{P/C})
+        # vel = links_state.cd_vel[i_l, i_b] + ang.cross(cpos)            # 𝐯_C + 𝛚 × 𝐫_{P/C}
+        # acc_classic_lin = acc_lin + ang.cross(vel)                      # 𝐚_C + 𝛚̇ × 𝐫_{P/C} + 𝛚 × (𝐯_C + 𝛚 × 𝐫_{P/C})
         # （2）
         acc_classic_lin = acc_lin + ang.cross(ang.cross(cpos))          # 𝐚_C + 𝛚̇ × 𝐫_{P/C} + 𝛚 × (𝛚 × 𝐫_{P/C})
 
