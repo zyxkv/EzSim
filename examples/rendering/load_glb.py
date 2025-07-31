@@ -17,7 +17,8 @@ parser.add_argument("--fps", type=int, default=30, help="Frames per second")
 parser.add_argument("--video_len", type=int, default=5, help="Video length in seconds")
 args = parser.parse_args()
 
-test_glb = 'ext_assets/stone_gate.glb'
+# test_glb = 'ext_assets/stone_gate.glb'
+test_glb = 'ext_assets/terrain.glb'
 
 ezsim.init(
     backend=ezsim.gpu, 
@@ -70,7 +71,8 @@ cam = scene.add_camera(
 )
 
 # we can also record the camera video using data_recorder
-data_recorder.add_sensor(cam, VideoFileWriter(filename="stone_gate_glb.mp4"))
+import os
+data_recorder.add_sensor(cam, VideoFileWriter(filename=f"{os.path.basename(test_glb).split('.')[0]}.mp4"))
 ########################## build ##########################
 scene.build()
 data_recorder.start_recording()

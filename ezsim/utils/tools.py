@@ -193,6 +193,7 @@ class FPSTracker:
         else:
             self.dt_ema = dt
         fps = 1 / self.dt_ema
+        
         if self.n_envs > 0:
             self.total_fps = fps * self.n_envs
             ezsim.logger.info(

@@ -5,30 +5,37 @@ import numpy as np
 import torch
 
 import ezsim
+from ezsim.sensors import SensorDataRecorder, VideoFileWriter
+
 
 
 def main():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-v", "--vis", action="store_true", default=True)
+    parser.add_argument("--dt", type=float, default=1e-2, help="Simulation time step")
+    parser.add_argument("--w", type=int, default=640, help="Camera width")
+    parser.add_argument("--h", type=int, default=480, help="Camera height")
+    parser.add_argument("--fps", type=int, default=30, help="Frames per second")
+    parser.add_argument("--video_len", type=int, default=5, help="Video length in seconds")
+    parser.add_argument("-v", "--vis", action="store_true", default=False)
     parser.add_argument("-c", "--cpu", action="store_true", default=False)
     args = parser.parse_args()
 
     ########################## init ##########################
-    ezsim.init(seed=0, backend=ezsim.cpu if args.cpu else ezsim.gpu)
+    ezsim.init(seed=4320, backend=ezsim.cpu if args.cpu else ezsim.gpu)
 
     ########################## create a scene ##########################
 
     scene = ezsim.Scene(
         rigid_options=ezsim.options.RigidOptions(
-            dt=0.01,
+            dt=args.dt,
             constraint_solver=ezsim.constraint_solver.Newton,
         ),
-        viewer_options=ezsim.options.ViewerOptions(
-            camera_pos=(-5.0, -5.0, 10.0),
-            camera_lookat=(5.0, 5.0, 0.0),
-            camera_fov=40,
-        ),
+        # viewer_options=ezsim.options.ViewerOptions(
+        #     camera_pos=(-5.0, -5.0, 10.0),
+        #     camera_lookat=(5.0, 5.0, 0.0),
+        #     camera_fov=40,
+        # ),
         show_viewer=args.vis,
     )
 
@@ -53,24 +60,44 @@ def main():
             radius=0.1,
         ),
     )
+    ########################## add sensors ##########################
+    data_recorder = SensorDataRecorder(step_dt=args.dt)
+    # Add camera for visualization
+    cam = scene.add_camera(
+        res=(args.w, args.h),
+        pos=(-5.0, -5.0, 10.0),
+        lookat=(5.0, 5.0, 0.0),
+        fov=40,
+        GUI=False,
+    )
+
+    # we can also record the camera video using data_recorder
+    data_recorder.add_sensor(cam, VideoFileWriter(filename="random_terrain_sub.mp4"))
+
     ########################## build ##########################
     scene.build(n_envs=100)
 
     ball.set_pos(torch.cartesian_prod(*(torch.arange(1, 11),) * 2, torch.tensor((1,))))
 
-    height_field = terrain.geoms[0].metadata["height_field"]
-    rows = horizontal_scale * torch.range(0, height_field.shape[0] - 1, 1).unsqueeze(1).repeat(
-        1, height_field.shape[1]
-    ).unsqueeze(-1)
-    cols = horizontal_scale * torch.range(0, height_field.shape[1] - 1, 1).unsqueeze(0).repeat(
-        height_field.shape[0], 1
-    ).unsqueeze(-1).to(rows.device)
-    heights = vertical_scale * torch.tensor(height_field).unsqueeze(-1).to(rows.device)
+    (terrain_geom,) = terrain.geoms
+    height_field = terrain_geom.metadata["height_field"]
+    rows = (horizontal_scale * torch.arange(height_field.shape[0])).reshape((-1, 1)).expand(height_field.shape)
+    cols = (horizontal_scale * torch.arange(height_field.shape[1])).reshape((1, -1)).expand(height_field.shape)
+    heights = vertical_scale * torch.as_tensor(height_field)
+    poss = torch.stack((rows, cols, heights), dim=-1).reshape((-1, 3))
+    scene.draw_debug_spheres(poss=poss, radius=0.05, color=(0.0, 0.0, 1.0, 0.7))
+    data_recorder.start_recording()
+    try:
+        for _ in range(args.video_len*args.fps):
+            scene.step()
+            data_recorder.step()
+            time.sleep(1/args.fps)
+    except KeyboardInterrupt:
+        ezsim.logger.info("Simulation interrupted, exiting.")
+    finally:
+        ezsim.logger.info("Simulation finished.")
 
-    poss = torch.cat([rows, cols, heights], dim=-1).reshape(-1, 3)
-    scene.draw_debug_spheres(poss=poss, radius=0.05, color=(0, 0, 1, 0.7))
-    for _ in range(1000):
-        scene.step()
+        data_recorder.stop_recording()
 
 
 if __name__ == "__main__":

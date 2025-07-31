@@ -112,8 +112,9 @@ class RigidLink(RBC):
                 is_fixed = False
         if self._root_idx is None:
             self._root_idx = ezsim.np_int(link.idx)
-        self.is_fixed: np.int32 = ezsim.np_int(is_fixed)  # note: type inconsistent with is_built, is_free, is_leaf: bool
-
+        # self.is_fixed: np.int32 = ezsim.np_int(is_fixed)  # note: type inconsistent with is_built, is_free, is_leaf: bool
+        self.is_fixed = is_fixed
+        
         # inertial_mass and inertia_i
         if self._inertial_mass is None:
             if len(self._geoms) == 0 and len(self._vgeoms) == 0:
@@ -162,7 +163,7 @@ class RigidLink(RBC):
                         * np.eye(3)
                     )
 
-        self._inertial_i = np.array(self._inertial_i, dtype=ezsim.np_float)
+        self._inertial_i = np.asarray(self._inertial_i, dtype=ezsim.np_float)
 
         # override invweight if fixed
         if is_fixed:
@@ -382,14 +383,14 @@ class RigidLink(RBC):
         """
         Set the mass of the link.
         """
-        if mass <= 0:
-            if mass < 0:
-                ezsim.raise_exception(f"Attempt to set mass of {mass} to {self.name} link. Mass must be positive.")
-            ezsim.logger.warning(f"Attempt to set mass of {mass} to {self.name} link. Mass must be positive, skipping.")
-            return
+        if self.is_fixed:
+            ezsim.warning(f"Updating the mass of a link that is fixed wrt world has no effect, skipping.")
+            return 
+        
+        if mass < ezsim.EPS:
+            ezsim.raise_exception(f"Attempt to set mass of link '{self.name}' to {mass}. Mass must be strictly positive.")
 
-        ratio = mass / self._inertial_mass
-        assert ratio > 0
+        ratio = float(mass) / self._inertial_mass
         self._inertial_mass *= ratio
         if self._invweight is not None:
             self._invweight /= ratio
@@ -407,7 +408,7 @@ class RigidLink(RBC):
         """
         Get the mass of the link.
         """
-        return self.inertial_mass
+        return self._inertial_mass
 
     def set_friction(self, friction):
         """
