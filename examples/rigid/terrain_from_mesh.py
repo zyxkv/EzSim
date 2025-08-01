@@ -46,8 +46,8 @@ def main():
     
     # 使用更高的oversample来捕获更多细节，并使用不同的spacing处理窄mesh
     # 对于Y方向较窄的mesh，使用更小的spacing
-    spacing_x = 0.1  # X方向spacing，减小以获得更多网格点
-    spacing_y = 0.02  # Y方向使用更小的spacing，因为mesh在Y方向很窄
+    spacing_x = 0.05  # X方向spacing，减小以获得更多网格点
+    spacing_y = 0.05  # Y方向使用更小的spacing，因为mesh在Y方向很窄
     horizontal_scale = max(spacing_x,spacing_y)  # 从2.0改为0.5，获得更密集的网格
     print("=== Loading terrain mesh ===")
     hf_terrain, xs, ys = mesh_to_heightfield(
@@ -92,7 +92,7 @@ def main():
     ball = scene.add_entity(
         ezsim.morphs.Sphere(
             pos=(ball_x, ball_y, ball_z),
-            radius=0.01,
+            radius=0.25,
         ),
         vis_mode="collision",
     )
@@ -102,8 +102,8 @@ def main():
     data_recorder = SensorDataRecorder(step_dt=args.dt)
     
     # 调整相机位置以更好地观察地形
-    cam_x = (np.min(xs) + np.max(xs)) / 2  # X方向中心
-    cam_y = np.min(ys) - 50  # 在Y方向前方
+    cam_x = (np.min(xs) + np.max(xs)) / 2 - 10  # X方向中心
+    cam_y = np.min(ys) - 20  # 在Y方向前方
     cam_z = np.max(hf_terrain) + 20  # 在地形上方
     
     cam = scene.add_camera(

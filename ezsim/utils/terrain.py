@@ -456,7 +456,8 @@ def mesh_to_heightfield(
     if up_axis.lower() == "y":
         # rotate so Z becomes up (‑90° around X)
         T = trimesh.transformations.rotation_matrix(np.deg2rad(-90), [1, 0, 0])
-        mesh.apply_transform(T)
+        T2 = trimesh.transformations.rotation_matrix(np.deg2rad(180), [0, 1, 0])
+        mesh.apply_transform(T).apply_transform(T2)
 
     (minx, miny, _), (maxx, maxy, maxz) = mesh.bounds
 
