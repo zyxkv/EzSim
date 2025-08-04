@@ -5,6 +5,7 @@ import torch
 import pickle
 import time
 import taichi as ti
+from numpy.typing import ArrayLike
 
 import ezsim
 import ezsim.utils.geom as gu
@@ -33,7 +34,7 @@ from ezsim.options import (
 )
 from ezsim.options.morphs import Morph
 from ezsim.options.surfaces import Surface
-from ezsim.options.renderers import Rasterizer, Renderer
+from ezsim.options.renderers import Rasterizer, RendererOptions
 from ezsim.repr_base import RBC
 from ezsim.utils.tools import FPSTracker
 from ezsim.utils.misc import redirect_libc_stderr, tensor_to_array
@@ -73,8 +74,8 @@ class Scene(RBC):
         The options configuring the visualization system (``scene.visualizer``). Visualizer controls both the interactive viewer and the cameras.
     viewer_options : ezsim.options.ViewerOptions
         The options configuring the viewer (``scene.visualizer.viewer``).
-    renderer : ezsim.renderers.Renderer
-        The renderer used by `camera` for rendering images. This doesn't affect the behavior of the interactive viewer.
+    renderer : ezsim.renderers.RendererOptions
+        The renderer options used by `camera` for rendering images. This doesn't affect the behavior of the interactive viewer.
     show_viewer : bool
         Whether to show the interactive viewer. Set it to False if you only need headless rendering.
     show_FPS : bool
@@ -96,7 +97,7 @@ class Scene(RBC):
         vis_options: VisOptions | None = None,
         viewer_options: ViewerOptions | None = None,
         profiling_options: ProfilingOptions | None = None,
-        renderer: Renderer | None = None,
+        renderer: RendererOptions | None = None,
         show_viewer: bool | None = None,
         show_FPS: bool | None = None,  # deprecated, use profiling_options.show_FPS instead
     ):
@@ -152,6 +153,7 @@ class Scene(RBC):
 
         self.vis_options = vis_options
         self.viewer_options = viewer_options
+        self.renderer_options = renderer
 
         # merge options
         self.tool_options.copy_attributes_from(self.sim_options)
@@ -184,7 +186,7 @@ class Scene(RBC):
             show_viewer=show_viewer,
             vis_options=vis_options,
             viewer_options=viewer_options,
-            renderer=renderer,
+            renderer_options=renderer,
         )
 
         # emitters
@@ -214,7 +216,7 @@ class Scene(RBC):
         vis_options: VisOptions,
         viewer_options: ViewerOptions,
         profiling_options: ProfilingOptions,
-        renderer: Renderer,
+        renderer_options: RendererOptions,
     ):
         if not isinstance(sim_options, SimOptions):
             ezsim.raise_exception("`sim_options` should be an instance of `SimOptions`.")
@@ -255,8 +257,8 @@ class Scene(RBC):
         if not isinstance(profiling_options, ProfilingOptions):
             ezsim.raise_exception("`profiling_options` should be an instance of `ProfilingOptions`.")
 
-        if not isinstance(renderer, Renderer):
-            ezsim.raise_exception("`renderer` should be an instance of `ezsim.renderers.Renderer`.")
+        if not isinstance(renderer_options, RendererOptions):
+            ezsim.raise_exception("`renderer_options` should be an instance of `ezsim.renderers.RendererOptions`.")
 
     @ezsim.assert_unbuilt
     def add_entity(
@@ -441,42 +443,89 @@ class Scene(RBC):
     @ezsim.assert_unbuilt
     def add_light(
         self,
-        morph: Morph,
-        color=(1.0, 1.0, 1.0, 1.0),
-        intensity=20.0,
-        revert_dir=False,
-        double_sided=False,
-        beam_angle=180.0,
+        *,
+        morph: Morph | None = None,
+        color: ArrayLike | None = (1.0, 1.0, 1.0, 1.0),
+        intensity: float = 20.0,
+        revert_dir: bool | None = False,
+        double_sided: bool | None = False,
+        beam_angle: float | None = 180.0,
+        pos: ArrayLike | None = None,
+        dir: ArrayLike | None = None,
+        directional: bool | None = None,
+        castshadow: bool | None = None,
+        cutoff: float | None = None,
+        # morph: Morph,
+        # color=(1.0, 1.0, 1.0, 1.0),
+        # intensity=20.0,
+        # revert_dir=False,
+        # double_sided=False,
+        # beam_angle=180.0,
     ):
         """
         Add a light to the scene. Note that lights added this way can be instantiated from morphs (supporting `ezsim.morphs.Primitive` or `ezsim.morphs.Mesh`), and will only be used by the RayTracer renderer.
 
+        Warning
+        -------
+        The signature of this method is different depending on the renderer being used, i.e.:
+        - RayTracer: 'add_light(self, morph, color, intensity, revert_dir, double_sided, beam_angle)'
+        - BatchRender: 'add_ligth(self, pos, dir, intensity, directional, castshadow, cutoff)'
+        - Rasterizer: **Unsupported**
+
         Parameters
         ----------
         morph : ezsim.morphs.Morph
-            The morph of the light. Must be an instance of `ezsim.morphs.Primitive` or `ezsim.morphs.Mesh`.
+            The morph of the light. Must be an instance of `ezsim.morphs.Primitive` or `ezsim.morphs.Mesh`. Only supported by RayTracer.
         color : tuple of float, shape (3,)
-            The color of the light, specified as (r, g, b).
+            The color of the light, specified as (r, g, b). Only supported by RayTracer.
         intensity : float
             The intensity of the light.
         revert_dir : bool
-            Whether to revert the direction of the light. If True, the light will be emitted towards the mesh's inside.
+            Whether to revert the direction of the light. If True, the light will be emitted towards the mesh's inside. Only supported by RayTracer.
         double_sided : bool
-            Whether to emit light from both sides of surface.
+            Whether to emit light from both sides of surface. Only supported by RayTracer.
         beam_angle : float
-            The beam angle of the light.
+            The beam angle of the light. Only supported by RayTracer.
+        pos : tuple of float, shape (3,)
+             The position of the light, specified as (x, y, z). Only supported by BatchRenderer.
+        dir : tuple of float, shape (3,)
+            The direction of the light, specified as (x, y, z). Only supported by BatchRenderer.
+        directional : bool
+            Whether the light is directional. Only supported by BatchRenderer.
+        castshadow : bool
+            Whether the light casts shadows. Only supported by BatchRenderer.
+        cutoff : float
+            The cutoff angle of the light. Only supported by BatchRenderer.
+
         """
-        if self.visualizer.raytracer is None:
-            ezsim.logger.warning("Light is only supported by RayTracer renderer.")
-            return
 
-        if not isinstance(morph, (ezsim.morphs.Primitive, ezsim.morphs.Mesh)):
-            ezsim.raise_exception("Light morph only supports `ezsim.morphs.Primitive` or `ezsim.morphs.Mesh`.")
+        if self._visualizer.batch_renderer is not None:
+            if any(map(lambda e: e is None, (pos, dir, intensity, directional, castshadow, cutoff))):
+                ezsim.raise_exception("Input arguments do not complain with expected signature when using 'BatchRenderer'")
 
-        mesh = ezsim.Mesh.from_morph_surface(morph, ezsim.surfaces.Plastic(smooth=False))
-        self.visualizer.raytracer.add_mesh_light(
-            mesh, color, intensity, morph.pos, morph.quat, revert_dir, double_sided, beam_angle
-        )
+            self.visualizer.add_light(pos, dir, intensity, directional, castshadow, cutoff)
+
+        elif self.visualizer.raytracer is not None:
+            if any(map(lambda e: e is None, (morph, color, intensity, revert_dir, double_sided, beam_angle))):
+                ezsim.raise_exception("Input arguments do not complain with expected signature when using 'RayTracer'")
+            if not isinstance(morph, (ezsim.morphs.Primitive, ezsim.morphs.Mesh)):
+                ezsim.raise_exception("Light morph only supports `ezsim.morphs.Primitive` or `ezsim.morphs.Mesh`.")
+
+            mesh = ezsim.Mesh.from_morph_surface(morph, ezsim.surfaces.Plastic(smooth=False))
+            self.visualizer.raytracer.add_mesh_light(
+                mesh, color, intensity, morph.pos, morph.quat, revert_dir, double_sided, beam_angle
+            )
+        else:
+            ezsim.raise_exception("Adding lights is only supported by 'RayTracer' and 'BatchRenderer'.")
+
+        #TODO: no more mesh light after batch_renderer included
+        # if not isinstance(morph, (ezsim.morphs.Primitive, ezsim.morphs.Mesh)):
+        #     ezsim.raise_exception("Light morph only supports `ezsim.morphs.Primitive` or `ezsim.morphs.Mesh`.")
+
+        # mesh = ezsim.Mesh.from_morph_surface(morph, ezsim.surfaces.Plastic(smooth=False))
+        # self.visualizer.raytracer.add_mesh_light(
+        #     mesh, color, intensity, morph.pos, morph.quat, revert_dir, double_sided, beam_angle
+        # )
 
     @ezsim.assert_unbuilt
     def add_camera(
@@ -492,6 +541,7 @@ class Scene(RBC):
         GUI=False,
         spp=256,
         denoise=True,
+        env_idx=None,
     ):
         """
         Add a camera to the scene.
@@ -537,7 +587,7 @@ class Scene(RBC):
             The created camera object.
         """
 
-        return self._visualizer.add_camera(res, pos, lookat, up, model, fov, aperture, focus_dist, GUI, spp, denoise)
+        return self._visualizer.add_camera(res, pos, lookat, up, model, fov, aperture, focus_dist, GUI, spp, denoise, env_idx=env_idx)
 
     @ezsim.assert_unbuilt
     def add_emitter(
@@ -735,7 +785,9 @@ class Scene(RBC):
         self._forward_ready = True
         self._reset_grad()
 
-        # TODO: sets _t = -1; not sure this is env isolation safe
+        # !!! Deprecated NOTE: sets _t = -1; not sure this is env isolation safe
+        # Clear the entire cache of the visualizer.
+        # TODO: Could be optimized to only clear cache associated the the environments being reset.
         self._visualizer.reset()
 
         # TODO: sets _next_particle = 0; not sure this is env isolation safe
@@ -1042,6 +1094,34 @@ class Scene(RBC):
                 Ts, axis_length=frame_scaling * 0.1, origin_size=0.001, axis_radius=frame_scaling * 0.005
             )
 
+    @ezsim.assert_built
+    def render_all_cameras(self, rgb=True, depth=False, normal=False, segmentation=False, force_render=False):
+        """
+        Render the scene for all cameras using the batch renderer.
+
+        Parameters
+        ----------
+        rgb : bool, optional
+            Whether to render the rgb image.
+        depth : bool, optional
+            Whether to render the depth image.
+        normal : bool, optional
+            Whether to render the normal image.
+        segmentation : bool, optional
+            Whether to render the segmentation image.
+        force_render : bool, optional
+            Whether to force render the scene.
+
+        Returns:
+            A tuple of tensors of shape (n_envs, H, W, 3) if rgb is not None,
+            otherwise a list of tensors of shape (n_envs, H, W, 1) if depth is not None.
+            If n_envs == 0, the first dimension of the tensor is squeezed.
+        """
+        if self._visualizer.batch_renderer is None:
+            ezsim.raise_exception("Method only supported by 'BatchRenderer'")
+
+        return self._visualizer.batch_renderer.render(rgb, depth, normal, segmentation, force_render)
+    
     @ezsim.assert_built
     def clear_debug_object(self, object):
         """

@@ -23,7 +23,12 @@ jobs:
       HF_TOKEN: ${{ secrets.HF_TOKEN }}
       HF_HUB_DOWNLOAD_TIMEOUT: 60
       EZSIM_IMAGE_VER: "1_0"
+      # EZSIM_IMAGE_VER: "1_1"
       TIMEOUT_MINUTES: 180
+      # FIXME: madrona does not support CUDA heap size configuration
+      # this environ is in https://github.com/shacklettbp/madrona_mjx/blob/1b03bc893f34f1204c3190c883f01c8a989b3b94/scripts/debug.py#L99
+      # MADRONA_DISABLE_CUDA_HEAP_SIZE: "1"
+
 
     steps:
       - name: Checkout code

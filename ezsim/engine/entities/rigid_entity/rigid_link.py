@@ -1,9 +1,9 @@
 from typing import TYPE_CHECKING
 
 import numpy as np
-from numpy.typing import ArrayLike
 import taichi as ti
 import torch
+from numpy.typing import ArrayLike
 
 import ezsim
 import trimesh

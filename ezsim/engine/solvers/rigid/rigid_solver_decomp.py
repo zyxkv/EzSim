@@ -778,6 +778,7 @@ class RigidSolver(Solver):
                 vgeoms_vface_start=np.array([vgeom.vface_start for vgeom in vgeoms], dtype=ezsim.np_int),
                 vgeoms_vvert_end=np.array([vgeom.vvert_end for vgeom in vgeoms], dtype=ezsim.np_int),
                 vgeoms_vface_end=np.array([vgeom.vface_end for vgeom in vgeoms], dtype=ezsim.np_int),
+                vgeoms_color=np.array([vgeom._color for vgeom in vgeoms], dtype=ezsim.np_float),
                 # taichi variables
                 vgeoms_info=self.vgeoms_info,
                 static_rigid_sim_config=self._static_rigid_sim_config,
@@ -2886,6 +2887,7 @@ def kernel_init_vgeom_fields(
     vgeoms_vface_start: ti.types.ndarray(),
     vgeoms_vvert_end: ti.types.ndarray(),
     vgeoms_vface_end: ti.types.ndarray(),
+    vgeoms_color: ti.types.ndarray(),
     # taichi variables
     vgeoms_info: array_class.VGeomsInfo,
     static_rigid_sim_config: ti.template(),
@@ -2908,7 +2910,8 @@ def kernel_init_vgeom_fields(
         vgeoms_info.vface_num[i] = vgeoms_vface_end[i] - vgeoms_vface_start[i]
 
         vgeoms_info.link_idx[i] = vgeoms_link_idx[i]
-
+        for j in ti.static(range(4)):
+            vgeoms_info.color[i][j] = vgeoms_color[i, j]
 
 @ti.kernel
 def kernel_init_entity_fields(
@@ -3439,7 +3442,8 @@ def kernel_rigid_entity_inverse_kinematics(
     rot_mask = ti.Vector([rot_mask_[0], rot_mask_[1], rot_mask_[2]], dt=ezsim.ti_float)
     n_error_dims = 6 * n_links
 
-    for i_b in envs_idx:
+    for i_b_ in range(envs_idx.shape[0]):
+        i_b = envs_idx[i_b_]
         # save original qpos
         for i_q in range(rigid_entity.n_qs):
             rigid_entity._IK_qpos_orig[i_q, i_b] = rigid_global_info.qpos[i_q + rigid_entity._q_start, i_b]
@@ -4053,7 +4057,8 @@ def kernel_forward_kinematics_links_geoms(
     rigid_global_info: array_class.RigidGlobalInfo,
     static_rigid_sim_config: ti.template(),
 ):
-    for i_b in envs_idx:
+    for i_b_ in range(envs_idx.shape[0]):
+        i_b = envs_idx[i_b_]
         func_update_cartesian_space(
             i_b=i_b,
             links_state=links_state,
@@ -4494,7 +4499,8 @@ def kernel_forward_kinematics_entity(
     rigid_global_info: array_class.RigidGlobalInfo,
     static_rigid_sim_config: ti.template(),
 ):
-    for i_b in envs_idx:
+    for i_b_ in range(envs_idx.shape[0]):
+        i_b = envs_idx[i_b_]
         func_forward_kinematics_entity(
             i_e,
             i_b,
@@ -4714,7 +4720,8 @@ def kernel_update_geoms(
     rigid_global_info: array_class.RigidGlobalInfo,
     static_rigid_sim_config: ti.template(),
 ):
-    for i_b in envs_idx:
+    for i_b_ in range(envs_idx.shape[0]):
+        i_b = envs_idx[i_b_]
         func_update_geoms(
             i_b,
             entities_info,

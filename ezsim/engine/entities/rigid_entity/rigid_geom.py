@@ -85,6 +85,7 @@ class RigidGeom(RBC):
         self._surface = mesh.surface
         self._metadata = mesh.metadata
 
+
         if center_init is None:
             self._init_center_pos = np.repeat(
                 self._init_verts.mean(0, keepdims=True), repeats=self._init_verts.shape[0], axis=0
@@ -874,6 +875,8 @@ class RigidVisGeom(RBC):
         self._uvs = vmesh.uvs
         self._surface = vmesh.surface
         self._metadata = vmesh.metadata
+        self._color = vmesh._color
+
 
     def _build(self):
         pass

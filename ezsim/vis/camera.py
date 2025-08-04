@@ -3,6 +3,8 @@ import inspect
 import os
 import time
 
+import torch 
+import math
 import cv2
 import numpy as np
 
@@ -10,6 +12,18 @@ import ezsim
 import ezsim.utils.geom as gu
 from ezsim.sensors import Sensor
 from ezsim.utils.misc import tensor_to_array
+
+# quat for Madrona needs to be transformed to y-forward
+def _T_to_quat_for_madrona(T):
+    if not isinstance(T, torch.Tensor):
+        ezsim.raise_exception(f"the input must be torch.Tensor. got: {type(T)=}")
+
+    R = T[..., :3, :3].contiguous()
+    quat = gu.R_to_quat(R)
+
+    w, x, y, z = quat[..., 0], quat[..., 1], quat[..., 2], quat[..., 3]
+    return torch.stack([x + w, x - w, y - z, y + z], dim=1) / math.sqrt(2.0)
+
 
 
 class Camera(Sensor):
@@ -73,6 +87,7 @@ class Camera(Sensor):
         near=0.05,
         far=100.0,
         transform=None,
+        env_idx=None,
     ):
         self._idx = idx
         self._uid = ezsim.UID()
@@ -86,16 +101,25 @@ class Camera(Sensor):
         self._denoise = denoise
         self._near = near
         self._far = far
-        self._pos = pos
-        self._lookat = lookat
-        self._up = up
-        self._transform = transform
+        # self._pos = pos
+        # self._lookat = lookat
+        # self._up = up
+        # self._transform = transform
+        self._initial_pos = torch.as_tensor(pos, dtype=ezsim.tc_float, device=ezsim.device)
+        self._initial_lookat = torch.as_tensor(lookat, dtype=ezsim.tc_float, device=ezsim.device)
+        self._initial_up = torch.as_tensor(up, dtype=ezsim.tc_float, device=ezsim.device)
+        self._initial_transform = None
+        if transform is not None:
+            self._initial_transform = torch.as_tensor(transform, dtype=ezsim.tc_float, device=ezsim.device)
+
         self._aspect_ratio = self._res[0] / self._res[1]
         self._visualizer = visualizer
         self._is_built = False
         self._attached_link = None
         self._attached_offset_T = None
-        self._attached_env_idx = None
+        # self._attached_env_idx = None
+        self._env_idx = env_idx
+        self._envs_offset = None
 
         self._in_recording = False
         self._recorded_imgs = []
@@ -104,7 +128,7 @@ class Camera(Sensor):
         self._recorded_segmentations = []
         self._recorded_normals = []
 
-        self._init_pos = np.array(pos)
+        # self._init_pos = np.array(pos)
 
         self._followed_entity = None
         self._follow_fixed_axis = None
@@ -115,23 +139,45 @@ class Camera(Sensor):
             ezsim.raise_exception(f"Invalid camera model: {self._model}")
 
         if self._focus_dist is None:
-            self._focus_dist = np.linalg.norm(np.array(lookat) - np.array(pos))
-
-    def _build(self):
+            # self._focus_dist = np.linalg.norm(np.array(lookat) - np.array(pos))
+            self._focus_dist = np.linalg.norm(np.asarray(lookat) - np.asarray(pos))
+    
+    def build(self):
+        self._envs_offset = torch.as_tensor(self._visualizer._scene.envs_offset, dtype=ezsim.tc_float, device=ezsim.device)
+        self._batch_renderer = self._visualizer.batch_renderer
         self._rasterizer = self._visualizer.rasterizer
         self._raytracer = self._visualizer.raytracer
 
-        self._rgb_stacked = self._visualizer._context.env_separate_rigid
-        self._other_stacked = self._visualizer._context.env_separate_rigid
+        self._rasterizer.add_camera(self)
+        if self._batch_renderer is not None:
+            self._rgb_stacked = True
+            self._other_stacked = True
+        else:
+            if self._env_idx is None:
+                self._env_idx = 0
+            elif not isinstance(self._env_idx, int) or self._env_idx >= max(self._visualizer.scene.n_envs, 1):
+                ezsim.raise_exception("Tracked environment index out-of-bounds")
+            if self._raytracer is not None:
+                self._raytracer.add_camera(self)
+                self._rgb_stacked = False
+                self._other_stacked = False
+            else:
+                self._rgb_stacked = self._visualizer._context.env_separate_rigid
+                self._other_stacked = self._visualizer._context.env_separate_rigid
 
-        if self._rasterizer is not None:
-            self._rasterizer.add_camera(self)
-        if self._raytracer is not None:
-            self._raytracer.add_camera(self)
-            self._rgb_stacked = False  # TODO: Raytracer currently does not support batch rendering
+    
+        # self._rgb_stacked = self._visualizer._context.env_separate_rigid
+        # self._other_stacked = self._visualizer._context.env_separate_rigid
+
+        # if self._rasterizer is not None:
+        #     self._rasterizer.add_camera(self)
+        # if self._raytracer is not None:
+        #     self._raytracer.add_camera(self)
+        #     self._rgb_stacked = False  # TODO: Raytracer currently does not support batch rendering
 
         self._is_built = True
-        self.set_pose(self._transform, self._pos, self._lookat, self._up)
+        # self.set_pose(self._transform, self._pos, self._lookat, self._up)
+        self.setup_initial_env_poses()
 
     def attach(self, rigid_link, offset_T, env_idx: int | None = None):
         """
@@ -210,7 +256,7 @@ class Camera(Sensor):
         return rgb
 
     @ezsim.assert_built
-    def render(self, rgb=True, depth=False, segmentation=False, colorize_seg=False, normal=False):
+    def render(self, rgb=True, depth=False, segmentation=False, normal=False):
         """
         Render the camera view. Note that the segmentation mask can be colorized, and if not colorized, it will store an object index in each pixel based on the segmentation level specified in `VisOptions.segmentation_level`. For example, if `segmentation_level='link'`, the segmentation mask will store `link_idx`, which can then be used to retrieve the actual link objects using `scene.rigid_solver.links[link_idx]`.
         If `env_separate_rigid` in `VisOptions` is set to True, each component will return a stack of images, with the number of images equal to `len(rendered_envs_idx)`.
@@ -453,8 +499,31 @@ class Camera(Sensor):
         else:
             ezsim.raise_exception("We need a rasterizer to render depth and then convert it to pount cloud.")
 
+    
     @ezsim.assert_built
-    def set_pose(self, transform=None, pos=None, lookat=None, up=None):
+    def setup_initial_env_poses(self):
+        """
+        Setup the camera poses for multiple environments.
+        """
+        if self._initial_transform is not None:
+            assert self._initial_transform.shape == (4, 4)
+            self._initial_pos, self._initial_lookat, self._initial_up = gu.T_to_pos_lookat_up(self._initial_transform)
+        else:
+            self._initial_transform = gu.pos_lookat_up_to_T(self._initial_pos, self._initial_lookat, self._initial_up)
+
+        n_envs = max(self._visualizer.scene.n_envs, 1)
+        self._multi_env_pos_tensor = self._initial_pos.repeat((n_envs, 1))
+        self._multi_env_lookat_tensor = self._initial_lookat.repeat((n_envs, 1))
+        self._multi_env_up_tensor = self._initial_up.repeat((n_envs, 1))
+        self._multi_env_transform_tensor = self._initial_transform.repeat((n_envs, 1, 1))
+        self._multi_env_quat_tensor = _T_to_quat_for_madrona(self._multi_env_transform_tensor)
+
+        self._rasterizer.update_camera(self)
+        if self._raytracer is not None:
+            self._raytracer.update_camera(self)
+
+    @ezsim.assert_built
+    def set_pose(self, transform=None, pos=None, lookat=None, up=None, env_idx=None):
         """
         Set the pose of the camera.
         Note that `transform` has a higher priority than `pos`, `lookat`, and `up`. If `transform` is provided, the camera pose will be set based on the transform matrix. Otherwise, the camera pose will be set based on `pos`, `lookat`, and `up`.
@@ -469,85 +538,123 @@ class Camera(Sensor):
             The lookat point of the camera.
         up : array-like, shape (3,), optional
             The up vector of the camera.
-
+        env_idx : array of indices in integers, optional
+            The environment indices. If not provided, the camera pose will be set for all environments.
         """
+        n_envs = max(self._visualizer.scene.n_envs, 1)
+        env_idx = self._visualizer._scene._sanitize_envs_idx(env_idx)
+
+        if pos is None and lookat is None and up is None and transform is None:
+            return
+
+        if pos is not None:
+            pos = torch.as_tensor(pos, dtype=ezsim.tc_float, device=ezsim.device)
+            if pos.shape[-1] != 3:
+                ezsim.raise_exception(f"Pos shape {pos.shape} does not match (n_envs, 3)")
+            if pos.ndim == 1:
+                pos = pos.expand((n_envs, 3))
+        if lookat is not None:
+            lookat = torch.as_tensor(lookat, dtype=ezsim.tc_float, device=ezsim.device)
+            if lookat.shape[-1] != 3:
+                ezsim.raise_exception(f"Lookat shape {lookat.shape} does not match (n_envs, 3)")
+            if lookat.ndim == 1:
+                lookat = lookat.expand((n_envs, 3))
+        if up is not None:
+            up = torch.as_tensor(up, dtype=ezsim.tc_float, device=ezsim.device)
+            if up.shape[-1] != 3:
+                ezsim.raise_exception(f"Up shape {up.shape} does not match (n_envs, 3)")
+            if up.ndim == 1:
+                up = up.expand((n_envs, 3))
         if transform is not None:
-            assert transform.shape == (4, 4)
-            self._transform = transform
-            self._pos, self._lookat, self._up = gu.T_to_pos_lookat_up(transform)
+            if any(data is not None for data in (pos, lookat, up)):
+                ezsim.raise_exception("Must specify either 'transform', or ('pos', 'lookat', 'up').")
+            transform = torch.as_tensor(transform, dtype=ezsim.tc_float, device=ezsim.device)
+            if transform.shape[-2:] != (4, 4):
+                ezsim.raise_exception(f"Transform shape {transform.shape} does not match (4, 4)")
+            if transform.ndim == 2:
+                transform = transform.expand((n_envs, 4, 4))
 
+        for data in (transform, pos, lookat, up):
+            if data is not None and len(data) != len(env_idx):
+                ezsim.raise_exception(f"Input data inconsistent with env_idx.")
+
+        if transform is None:
+            pos_ = pos if pos is not None else self._multi_env_pos_tensor
+            lookat_ = lookat if lookat is not None else self._multi_env_lookat_tensor
+            up_ = up if up is not None else self._multi_env_up_tensor
+            transform = gu.pos_lookat_up_to_T(pos_, lookat_, up_)
         else:
-            if pos is not None:
-                self._pos = pos
+            pos, lookat, up = gu.T_to_pos_lookat_up(transform)
 
-            if lookat is not None:
-                self._lookat = lookat
+        if pos is not None:
+            self._multi_env_pos_tensor[env_idx] = pos
+        if lookat is not None:
+            self._multi_env_lookat_tensor[env_idx] = lookat
+        if up is not None:
+            self._multi_env_up_tensor[env_idx] = up
+        self._multi_env_transform_tensor[env_idx] = transform
+        self._multi_env_quat_tensor[env_idx] = _T_to_quat_for_madrona(transform)
 
-            if up is not None:
-                self._up = up
-
-            self._transform = gu.pos_lookat_up_to_T(self._pos, self._lookat, self._up)
-
-        if self._rasterizer is not None:
-            self._rasterizer.update_camera(self)
+        self._rasterizer.update_camera(self)
         if self._raytracer is not None:
             self._raytracer.update_camera(self)
 
-    def follow_entity(self, entity, fixed_axis=(None, None, None), smoothing=None, fix_orientation=False):
-        """
-        Set the camera to follow a specified entity.
+    #TODO: refix the following camera
+    # def follow_entity(self, entity, fixed_axis=(None, None, None), smoothing=None, fix_orientation=False):
+    #     """
+    #     Set the camera to follow a specified entity.
 
-        Parameters
-        ----------
-        entity : ezsim.Entity
-            The entity to follow.
-        fixed_axis : (float, float, float), optional
-            The fixed axis for the camera's movement. For each axis, if None, the camera will move freely. If a float, the viewer will be fixed on at that value.
-            For example, [None, None, None] will allow the camera to move freely while following, [None, None, 0.5] will fix the viewer's z-axis at 0.5.
-        smoothing : float, optional
-            The smoothing factor for the camera's movement. If None, no smoothing will be applied.
-        fix_orientation : bool, optional
-            If True, the camera will maintain its orientation relative to the world. If False, the camera will look at the base link of the entity.
-        """
-        self._followed_entity = entity
-        self._follow_fixed_axis = fixed_axis
-        self._follow_smoothing = smoothing
-        self._follow_fix_orientation = fix_orientation
+    #     Parameters
+    #     ----------
+    #     entity : ezsim.Entity
+    #         The entity to follow.
+    #     fixed_axis : (float, float, float), optional
+    #         The fixed axis for the camera's movement. For each axis, if None, the camera will move freely. If a float, the viewer will be fixed on at that value.
+    #         For example, [None, None, None] will allow the camera to move freely while following, [None, None, 0.5] will fix the viewer's z-axis at 0.5.
+    #     smoothing : float, optional
+    #         The smoothing factor for the camera's movement. If None, no smoothing will be applied.
+    #     fix_orientation : bool, optional
+    #         If True, the camera will maintain its orientation relative to the world. If False, the camera will look at the base link of the entity.
+    #     """
+    #     self._followed_entity = entity
+    #     self._follow_fixed_axis = fixed_axis
+    #     self._follow_smoothing = smoothing
+    #     self._follow_fix_orientation = fix_orientation
 
-    @ezsim.assert_built
-    def update_following(self):
-        """
-        Update the camera position to follow the specified entity.
-        """
+    # @ezsim.assert_built
+    # def update_following(self):
+    #     """
+    #     Update the camera position to follow the specified entity.
+    #     """
 
-        entity_pos = self._followed_entity.get_pos()[0].cpu().numpy()
-        if entity_pos.ndim > 1:  # check for multiple envs
-            entity_pos = entity_pos[0]
-        camera_pos = np.array(self._pos)
-        camera_pose = np.array(self._transform)
-        lookat_pos = np.array(self._lookat)
+    #     entity_pos = self._followed_entity.get_pos()[0].cpu().numpy()
+    #     if entity_pos.ndim > 1:  # check for multiple envs
+    #         entity_pos = entity_pos[0]
+    #     camera_pos = np.array(self._pos)
+    #     camera_pose = np.array(self._transform)
+    #     lookat_pos = np.array(self._lookat)
 
-        if self._follow_smoothing is not None:
-            # Smooth camera movement with a low-pass filter
-            camera_pos = self._follow_smoothing * camera_pos + (1 - self._follow_smoothing) * (
-                entity_pos + self._init_pos
-            )
-            lookat_pos = self._follow_smoothing * lookat_pos + (1 - self._follow_smoothing) * entity_pos
-        else:
-            camera_pos = entity_pos + self._init_pos
-            lookat_pos = entity_pos
+    #     if self._follow_smoothing is not None:
+    #         # Smooth camera movement with a low-pass filter
+    #         camera_pos = self._follow_smoothing * camera_pos + (1 - self._follow_smoothing) * (
+    #             entity_pos + self._init_pos
+    #         )
+    #         lookat_pos = self._follow_smoothing * lookat_pos + (1 - self._follow_smoothing) * entity_pos
+    #     else:
+    #         camera_pos = entity_pos + self._init_pos
+    #         lookat_pos = entity_pos
 
-        for i, fixed_axis in enumerate(self._follow_fixed_axis):
-            # Fix the camera's position along the specified axis
-            if fixed_axis is not None:
-                camera_pos[i] = fixed_axis
+    #     for i, fixed_axis in enumerate(self._follow_fixed_axis):
+    #         # Fix the camera's position along the specified axis
+    #         if fixed_axis is not None:
+    #             camera_pos[i] = fixed_axis
 
-        if self._follow_fix_orientation:
-            # Keep the camera orientation fixed by overriding the lookat point
-            camera_pose[:3, 3] = camera_pos
-            self.set_pose(transform=camera_pose)
-        else:
-            self.set_pose(pos=camera_pos, lookat=lookat_pos)
+    #     if self._follow_fix_orientation:
+    #         # Keep the camera orientation fixed by overriding the lookat point
+    #         camera_pose[:3, 3] = camera_pos
+    #         self.set_pose(transform=camera_pose)
+    #     else:
+    #         self.set_pose(pos=camera_pos, lookat=lookat_pos)
 
     @ezsim.assert_built
     def set_params(self, fov=None, aperture=None, focus_dist=None, intrinsics=None):
@@ -588,8 +695,7 @@ class Camera(Sensor):
             else:
                 self._fov = intrinsics_fov
 
-        if self._rasterizer is not None:
-            self._rasterizer.update_camera(self)
+        self._rasterizer.update_camera(self)
         if self._raytracer is not None:
             self._raytracer.update_camera(self)
 
@@ -654,13 +760,51 @@ class Camera(Sensor):
 
         self._in_recording = False
 
+    def get_pos(self, env_idx=None):
+        """The current position of the camera."""
+        env_idx = () if env_idx is None else env_idx
+        pos = self._multi_env_pos_tensor[env_idx]
+        if self._batch_renderer is None:
+            pos = pos + self._envs_offset[env_idx]
+        return pos
+
+    def get_lookat(self, env_idx=None):
+        """The current lookat point of the camera."""
+        env_idx = () if env_idx is None else env_idx
+        lookat = self._multi_env_lookat_tensor[env_idx]
+        if self._batch_renderer is None:
+            lookat = lookat + self._envs_offset[env_idx]
+        return lookat
+
+    def get_up(self, env_idx=None):
+        """The current up vector of the camera."""
+        env_idx = () if env_idx is None else env_idx
+        return self._multi_env_up_tensor[env_idx]
+
+    def get_quat(self, env_idx=None):
+        """The current quaternion of the camera."""
+        env_idx = () if env_idx is None else env_idx
+        return self._multi_env_quat_tensor[env_idx]
+
+    def get_transform(self, env_idx=None):
+        """
+        The current transform matrix of the camera.
+        """
+        env_idx = () if env_idx is None else env_idx
+        transform = self._multi_env_transform_tensor[env_idx]
+        if self._batch_renderer is None:
+            transform = transform.clone()
+            transform[..., :3, 3] += self._envs_offset[env_idx]
+        return transform
+
     def _repr_brief(self):
-        return f"{self._repr_type()}: idx: {self._idx}, pos: {self._pos}, lookat: {self._lookat}"
+        return f"{self._repr_type()}: idx: {self._idx}, pos: {self.pos}, lookat: {self.lookat}"
 
     @property
     def is_built(self):
         """Whether the camera is built."""
         return self._is_built
+
 
     @property
     def idx(self):
@@ -746,24 +890,29 @@ class Camera(Sensor):
         return self._aspect_ratio
 
     @property
+    def env_idx(self):
+        """Index of the environment being tracked by the camera."""
+        return self._env_idx
+    
+    @property
     def pos(self):
-        """The current position of the camera."""
-        return np.array(self._pos)
+        """The current position of the camera for the tracked environment."""
+        return tensor_to_array(self.get_pos(self._env_idx), dtype=np.float32)
 
     @property
     def lookat(self):
-        """The current lookat point of the camera."""
-        return np.array(self._lookat)
+        """The current lookat point of the camera for the tracked environment."""
+        return tensor_to_array(self.get_lookat(self._env_idx), dtype=np.float32)
 
     @property
     def up(self):
-        """The current up vector of the camera."""
-        return np.array(self._up)
+        """The current up vector of the camera for the tracked environment."""
+        return tensor_to_array(self.get_up(self._env_idx), dtype=np.float32)
 
     @property
     def transform(self):
-        """The current transform matrix of the camera."""
-        return self._transform
+        """The current transform matrix of the camera for the tracked environment."""
+        return tensor_to_array(self.get_transform(self._env_idx), dtype=np.float32)
 
     @property
     def extrinsics(self):
