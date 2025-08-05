@@ -2560,7 +2560,7 @@ def test_data_accessor(n_envs, batched, tol):
                 # Randomly sample new data that are strictly positive and normalized,
                 # as this may be required for some setters (mass, quaternion, ...).
                 for val in datas_tp:
-                    val[()] = torch.abs(torch.randn(val.shape, dtype=ezsim.tc_float, device=gs.device)) + gs.EPS
+                    val[()] = torch.abs(torch.randn(val.shape, dtype=ezsim.tc_float, device=ezsim.device)) + ezsim.EPS
                     val /= torch.linalg.norm(val, dim=-1, keepdims=True)
             setter(*datas)
             if getter is not None:

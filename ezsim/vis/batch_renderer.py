@@ -65,7 +65,7 @@ class BatchRenderer(RBC):
 
     def __init__(self, visualizer, renderer_options):
         self._visualizer = visualizer
-        self._lights = gs.List()
+        self._lights = ezsim.List()
         self._renderer_options = renderer_options
         self._renderer = None
 
@@ -82,35 +82,37 @@ class BatchRenderer(RBC):
         if len(self._visualizer._cameras) == 0:
             raise ValueError("No cameras to render")
 
-        if gs.backend != gs.cuda:
-            gs.raise_exception("BatchRenderer requires CUDA backend.")
+        if ezsim.backend != ezsim.cuda:
+            ezsim.raise_exception("BatchRenderer requires CUDA backend.")
 
         cameras = self._visualizer._cameras
         lights = self._lights
         rigid = self._visualizer.scene.rigid_solver
         n_envs = max(self._visualizer.scene.n_envs, 1)
         res = cameras[0].res
-        gpu_id = gs.device.index
+        gpu_id = ezsim.device.index
         use_rasterizer = self._renderer_options.use_rasterizer
 
         # Cameras
         n_cameras = len(cameras)
         cameras_pos = torch.stack([camera.get_pos() for camera in cameras], dim=1)
         cameras_quat = torch.stack([camera.get_quat() for camera in cameras], dim=1)
-        cameras_fov = torch.tensor([camera.fov for camera in cameras], dtype=gs.tc_float, device=gs.device)
-
+        cameras_fov = torch.tensor([camera.fov for camera in cameras], dtype=ezsim.tc_float, device=ezsim.device)
+        cameras_znear = torch.tensor([camera.near for camera in cameras], dtype=ezsim.tc_float, device=ezsim.device)
+        cameras_zfar = torch.tensor([camera.far for camera in cameras], dtype=ezsim.tc_float, device=ezsim.device)
         # Build taichi arrays to store light properties once. If later we need to support dynamic lights, we should
         # consider storing light properties as taichi fields in Genesis.
         n_lights = len(lights)
-        light_pos = torch.tensor([light.pos for light in self._lights], dtype=gs.tc_float)
-        light_dir = torch.tensor([light.dir for light in self._lights], dtype=gs.tc_float)
-        light_intensity = torch.tensor([light.intensity for light in self._lights], dtype=gs.tc_float)
-        light_directional = torch.tensor([light.directional for light in self._lights], dtype=gs.tc_int)
-        light_castshadow = torch.tensor([light.castshadow for light in self._lights], dtype=gs.tc_int)
-        light_cutoff = torch.tensor([light.cutoffRad for light in self._lights], dtype=gs.tc_float)
+        light_pos = torch.tensor([light.pos for light in self._lights], dtype=ezsim.tc_float)
+        light_dir = torch.tensor([light.dir for light in self._lights], dtype=ezsim.tc_float)
+        light_intensity = torch.tensor([light.intensity for light in self._lights], dtype=ezsim.tc_float)
+        light_directional = torch.tensor([light.directional for light in self._lights], dtype=ezsim.tc_int)
+        light_castshadow = torch.tensor([light.castshadow for light in self._lights], dtype=ezsim.tc_int)
+        light_cutoff = torch.tensor([light.cutoffRad for light in self._lights], dtype=ezsim.tc_float)
 
         self._renderer = MadronaBatchRendererAdapter(
-            rigid, gpu_id, n_envs, n_cameras, n_lights, cameras_fov, *res, False, use_rasterizer
+            rigid, gpu_id, n_envs, n_cameras, n_lights, cameras_fov, 
+            cameras_znear, cameras_zfar, *res, False, use_rasterizer
         )
         self._renderer.init(
             rigid,
@@ -127,7 +129,7 @@ class BatchRenderer(RBC):
     def update_scene(self):
         self._visualizer._context.update()
 
-    def render(self, rgb=True, depth=False, segmentation=False, normal=False, force_render=False, aliasing=False):
+    def render(self, rgb=True, depth=False, normal=False, segmentation=False, force_render=False, aliasing=False):
         """
         Render all cameras in the batch.
 
@@ -153,10 +155,10 @@ class BatchRenderer(RBC):
         depth_arr : tuple of tensors
             The sequence of depth images associated with each camera.
         """
-        if normal:
-            raise NotImplementedError("Normal rendering not supported from now")
-        if segmentation:
-            raise NotImplementedError("Segmentation rendering not supported from now")
+        # if normal:
+        #     raise NotImplementedError("Normal rendering not supported from now")
+        # if segmentation:
+        #     raise NotImplementedError("Segmentation rendering not supported from now")
 
         # Clear cache if requested or necessary
         if force_render or self._t < self._visualizer.scene.t:
@@ -166,14 +168,18 @@ class BatchRenderer(RBC):
         cache_key = (aliasing,)
         rgb_arr = self._data_cache.get((IMAGE_TYPE.RGB, cache_key), None)
         depth_arr = self._data_cache.get((IMAGE_TYPE.DEPTH, cache_key), None)
+        normal_arr = self._data_cache.get((IMAGE_TYPE.NORMAL, cache_key), None)
+        segmentation_arr = self._data_cache.get((IMAGE_TYPE.SEGMENTATION, cache_key), None)
 
         # Force disabling rendering whenever cached data is already available
         rgb_ = rgb and rgb_arr is None
         depth_ = depth and depth_arr is None
+        normal_ = normal and normal_arr is None
+        segmentation_ = segmentation and segmentation_arr is None
 
         # Early return if there is nothing to do
-        if not (rgb_ or depth_):
-            return rgb_arr if rgb else None, depth_arr if depth else None, None, None
+        if not (rgb_ or depth_ or normal_ or segmentation_):
+            return rgb_arr if rgb else None, depth_arr if depth else None, normal_arr if normal else None, segmentation_arr if segmentation else None
 
         # Update scene
         self.update_scene()
@@ -181,13 +187,13 @@ class BatchRenderer(RBC):
         # Render frame
         cameras_pos = torch.stack([camera.get_pos() for camera in self._visualizer._cameras], dim=1)
         cameras_quat = torch.stack([camera.get_quat() for camera in self._visualizer._cameras], dim=1)
-        render_options = np.array((rgb_, depth_, False, False, aliasing), dtype=np.uint32)
-        rgba_arr_all, depth_arr_all = self._renderer.render(
+        render_options = np.array((rgb_, depth_, normal_, segmentation_, aliasing), dtype=np.uint32)
+        rgba_arr_all, depth_arr_all, normal_arr_all, segmentation_arr_all = self._renderer.render(
             self._visualizer.scene.rigid_solver, cameras_pos, cameras_quat, render_options
         )
 
         # Post-processing: Remove alpha channel from RGBA, squeeze env dim if necessary, and split along camera dim
-        buffers = [rgba_arr_all[..., :3], depth_arr_all]
+        buffers = [rgba_arr_all[..., :3], depth_arr_all, normal_arr_all[...,:3], segmentation_arr_all] if normal_ or segmentation_ else [rgba_arr_all[..., :3], depth_arr_all]
         for i, data in enumerate(buffers):
             if data is not None:
                 data = data.swapaxes(0, 1)
@@ -201,8 +207,12 @@ class BatchRenderer(RBC):
             rgb_arr = self._data_cache[(IMAGE_TYPE.RGB, cache_key)] = buffers[0]
         if depth_:
             depth_arr = self._data_cache[(IMAGE_TYPE.DEPTH, cache_key)] = buffers[1]
+        if normal_:
+            normal_arr = self._data_cache[(IMAGE_TYPE.NORMAL, cache_key)] = buffers[2]
+        if segmentation_:
+            segmentation_arr = self._data_cache[(IMAGE_TYPE.SEGMENTATION, cache_key)] = buffers[3]
 
-        return rgb_arr, depth_arr, None, None
+        return rgb_arr, depth_arr, normal_arr, segmentation_arr
 
     def destroy(self):
         self._lights.clear()

@@ -18,7 +18,11 @@ def main():
     args = parser.parse_args()
 
     ########################## init ##########################
-    ezsim.init(backend=ezsim.cpu if args.cpu else ezsim.gpu)
+    ezsim.init(
+        seed=4320,
+        backend=ezsim.cpu if args.cpu else ezsim.gpu,
+        log_time=False,
+        )
 
     ########################## create a scene ##########################
     scene = ezsim.Scene(
@@ -37,19 +41,20 @@ def main():
     )
 
     ########################## cameras ##########################
-    cam_0 = scene.add_camera(
-        res=(512, 512),
-        pos=(1.5, 0.5, 1.5),
-        lookat=(0.0, 0.0, 0.5),
-        fov=45,
-        GUI=args.vis,
-    )
-    cam_0.attach(franka.links[6], trans_to_T(np.array([0.0, 0.5, 0.0])))
+    # cam_0 = scene.add_camera(
+    #     res=(512, 512),
+    #     pos=(1.5, 0.5, 1.5),
+    #     lookat=(0.0, 0.0, 0.5),
+    #     fov=45,
+    #     GUI=args.vis,
+    # )
+    # cam_0.attach(franka.links[6], trans_to_T(np.array([0.0, 0.5, 0.0])))
     cam_1 = scene.add_camera(
-        res=(512, 512),
+        res=(640, 480),
         pos=(1.5, -0.5, 1.5),
         lookat=(0.0, 0.0, 0.5),
-        fov=45,
+        fov=45, # test large fov 45deg [√] 120deg[√] 210deg[×]
+        # 超过180还是需要修改底层
         GUI=args.vis,
     )
     scene.add_light(

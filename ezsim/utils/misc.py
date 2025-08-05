@@ -121,7 +121,7 @@ def assert_initialized(cls):
 
     def new_init(self, *args, **kwargs):
         if not ezsim._initialized:
-            raise RuntimeError("Genesis hasn't been initialized. Did you call `ezsim.init()`?")
+            raise RuntimeError("EzSim hasn't been initialized. Did you call `ezsim.init()`?")
         original_init(self, *args, **kwargs)
 
     cls.__init__ = new_init

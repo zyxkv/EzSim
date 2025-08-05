@@ -217,7 +217,7 @@ class Visualizer(RBC):
             self._scene.rigid_solver.update_vgeoms()
             # drone propellers
             for entity in self._scene.rigid_solver.entities:
-                if isinstance(entity, gs.engine.entities.DroneEntity):
+                if isinstance(entity, ezsim.engine.entities.DroneEntity):
                     entity.update_propeller_vgeoms()
 
             self._scene.rigid_solver.update_vgeoms_render_T()
