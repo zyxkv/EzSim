@@ -161,14 +161,16 @@ class Visualizer(RBC):
             self._batch_renderer.reset()
 
         if self.viewer_lock is not None:
+            # move _view update to first substep
+            if self._viewer is not None:
+                self._viewer.update(auto_refresh=True)
+
             # for camera in self._cameras:
             #     self._rasterizer.render_camera(camera)
             if self._batch_renderer is None:
                 for camera in self._cameras:
                     self._rasterizer.render_camera(camera)
 
-            if self._viewer is not None:
-                self._viewer.update(auto_refresh=True)
 
     def build(self):
         self._context.build(self._scene)

@@ -4,4 +4,3 @@ recursive-include ezsim/assets *
 recursive-include ezsim/ext/pyrender/fonts *
 recursive-include ezsim/ext/pyrender/shaders *
 include ezsim/ext/VolumeSampling
-include ezsim/ext/fast_simplification/*.h
