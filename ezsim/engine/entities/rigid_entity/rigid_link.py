@@ -54,7 +54,8 @@ class RigidLink(RBC):
         self._name: str = name
         self._entity: "RigidEntity" = entity
         self._solver: "RigidSolver" = entity.solver
-        self._entity_idx_in_solver = entity.idx
+        # self._entity_idx_in_solver = entity.idx
+        self._entity_idx_in_solver = entity._idx_in_solver
 
         self._uid = ezsim.UID()
         self._idx: int = idx

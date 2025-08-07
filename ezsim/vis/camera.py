@@ -223,7 +223,7 @@ class Camera(Sensor):
 
         Parameters
         ----------
-        rigid_link : genesis.RigidLink
+        rigid_link : ezsim.RigidLink
             The rigid link to which the camera should be attached.
         offset_T : np.ndarray, shape (4, 4)
             The transformation matrix specifying the camera's pose relative to the rigid link.
@@ -276,7 +276,7 @@ class Camera(Sensor):
 
         Parameters
         ----------
-        entity : genesis.Entity
+        entity : ezsim.Entity
             The entity to follow.
         fixed_axis : (float, float, float), optional
             The fixed axis for the camera's movement. For each axis, if None, the camera will move freely. If a float,
@@ -627,10 +627,10 @@ class Camera(Sensor):
             point_cloud_h = np.concatenate((pc, np.ones((len(pc), 1), dtype=np.float32)), axis=1)
             if world:
                 point_cloud_world = point_cloud_h @ pose.T
-                point_cloud_world = point_cloud_world[:, :3].reshape((*depth, 3))
+                point_cloud_world = point_cloud_world[:, :3].reshape((*depth.shape, 3))
                 return point_cloud_world, mask
             else:
-                point_cloud = point_cloud_h[:, :3].reshape((*depth, 3))
+                point_cloud = point_cloud_h[:, :3].reshape((*depth.shape, 3))
                 return point_cloud, mask
 
         intrinsic_K = opengl_projection_matrix_to_intrinsics(

@@ -294,9 +294,9 @@ class Scene(RBC):
             material = ezsim.materials.Rigid()
 
         if surface is None:
-            surface = (
-                ezsim.surfaces.Default()
-            )  # assign a local surface, otherwise modification will apply on global default surface
+            # assign a local surface, otherwise modification will apply on global default surface
+            surface = ezsim.surfaces.Default()
+            
 
         if isinstance(material, ezsim.materials.Rigid):
             # small sdf res is sufficient for primitives regardless of size

@@ -27,7 +27,7 @@ from .support_field_decomp import SupportField
 from enum import IntEnum
 
 if TYPE_CHECKING:
-    from genesis.engine.solvers.rigid.rigid_solver_decomp import RigidSolver
+    from ezsim.engine.solvers.rigid.rigid_solver_decomp import RigidSolver
 
 
 class CCD_ALGORITHM_CODE(IntEnum):
@@ -127,7 +127,7 @@ class Collider:
         # FIXME: 'ti.static_print' cannot be used as it will be printed systematically, completely ignoring guard
         # condition, while 'print' is slowing down the kernel even if every called in practice...
         self._warn_msg_max_collision_pairs = (
-            f"{colors.YELLOW}[Genesis] [00:00:00] [WARNING] Ignoring contact pair to avoid exceeding max "
+            f"{colors.YELLOW}[EzSim] [00:00:00] [WARNING] Ignoring contact pair to avoid exceeding max "
             f"({self._collider_info._max_contact_pairs[None]}). Please increase the value of RigidSolver's option "
             f"'max_collision_pairs'.{formats.RESET}"
         )
@@ -158,6 +158,7 @@ class Collider:
             links_root_idx = links_root_idx[:, 0]
             links_parent_idx = links_parent_idx[:, 0]
             links_is_fixed = links_is_fixed[:, 0]
+        entities_is_local_collision_mask = solver.entities_info.is_local_collision_mask.to_numpy()
 
         n_possible_pairs = 0
         collision_pair_validity = np.zeros((n_geoms, n_geoms), dtype=ezsim.np_int)
@@ -165,6 +166,8 @@ class Collider:
             for i_gb in range(i_ga + 1, n_geoms):
                 i_la = geoms_link_idx[i_ga]
                 i_lb = geoms_link_idx[i_gb]
+                i_ea = links_entity_idx[i_la]
+                i_eb = links_entity_idx[i_lb]
 
                 # geoms in the same link
                 if i_la == i_lb:
@@ -182,7 +185,10 @@ class Collider:
                         continue
 
                 # contype and conaffinity
-                if not (
+                if (
+                    (i_ea == i_eb)
+                    or not (entities_is_local_collision_mask[i_ea] or entities_is_local_collision_mask[i_eb])
+                ) and not (
                     (geoms_contype[i_ga] & geoms_conaffinity[i_gb]) or (geoms_contype[i_gb] & geoms_conaffinity[i_ga])
                 ):
                     continue
@@ -278,7 +284,7 @@ class Collider:
         )
 
     def detection(self) -> None:
-        # from genesis.utils.tools import create_timer
+        # from ezsim.utils.tools import create_timer
 
         self._contacts_info_cache = {}
         # timer = create_timer(name="69477ab0-5e75-47cb-a4a5-d4eebd9336ca", level=3, ti_sync=True, skip_first_call=True)

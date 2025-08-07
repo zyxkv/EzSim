@@ -356,7 +356,7 @@ def _get_model_mappings(
 ):
     if joints_name is None:
         joints_name = [
-            joint.name for entity in gs_sim.entities for joint in entity.joints if joint.type != gs.JOINT_TYPE.FIXED
+            joint.name for entity in gs_sim.entities for joint in entity.joints if joint.type != ezsim.JOINT_TYPE.FIXED
         ]
     if bodies_name is None:
         bodies_name = [
@@ -432,15 +432,15 @@ def _get_model_mappings(
 def build_mujoco_sim(
     xml_path, gs_solver, gs_integrator, merge_fixed_links, multi_contact, adjacent_collision, dof_damping, native_ccd
 ):
-    if gs_solver == gs.constraint_solver.CG:
+    if gs_solver == ezsim.constraint_solver.CG:
         mj_solver = mujoco.mjtSolver.mjSOL_CG
-    elif gs_solver == gs.constraint_solver.Newton:
+    elif gs_solver == ezsim.constraint_solver.Newton:
         mj_solver = mujoco.mjtSolver.mjSOL_NEWTON
     else:
         raise ValueError(f"Solver '{gs_solver}' not supported")
-    if gs_integrator == gs.integrator.Euler:
+    if gs_integrator == ezsim.integrator.Euler:
         mj_integrator = mujoco.mjtIntegrator.mjINT_EULER
-    elif gs_integrator == gs.integrator.implicitfast:
+    elif gs_integrator == ezsim.integrator.implicitfast:
         mj_integrator = mujoco.mjtIntegrator.mjINT_IMPLICITFAST
     else:
         raise ValueError(f"Integrator '{gs_integrator}' not supported")
@@ -485,20 +485,20 @@ def build_genesis_sim(
     show_viewer,
     mj_sim,
 ):
-    scene = gs.Scene(
-        viewer_options=gs.options.ViewerOptions(
+    scene = ezsim.Scene(
+        viewer_options=ezsim.options.ViewerOptions(
             camera_pos=(3, -1, 1.5),
             camera_lookat=(0.0, 0.0, 0.5),
             camera_fov=30,
             res=(960, 640),
             max_FPS=60,
         ),
-        sim_options=gs.options.SimOptions(
+        sim_options=ezsim.options.SimOptions(
             dt=mj_sim.model.opt.timestep,
             substeps=1,
             gravity=mj_sim.model.opt.gravity.tolist(),
         ),
-        rigid_options=gs.options.RigidOptions(
+        rigid_options=ezsim.options.RigidOptions(
             integrator=gs_integrator,
             constraint_solver=gs_solver,
             enable_mujoco_compatibility=mujoco_compatibility,
@@ -523,9 +523,9 @@ def build_genesis_sim(
         default_armature=None,
     )
     if xml_path.endswith(".xml"):
-        morph = gs.morphs.MJCF(**morph_kwargs)
+        morph = ezsim.morphs.MJCF(**morph_kwargs)
     else:
-        morph = gs.morphs.URDF(
+        morph = ezsim.morphs.URDF(
             fixed=True,
             merge_fixed_links=merge_fixed_links,
             links_to_keep=(),
@@ -561,10 +561,10 @@ def check_mujoco_model_consistency(
     *,
     tol: float,
 ):
-    # Delay import to enable run benchmarks for old Genesis versions that do not have this method
-    from genesis.engine.solvers.rigid.rigid_solver_decomp import _sanitize_sol_params
+    # Delay import to enable run benchmarks for old EzSim versions that do not have this method
+    from ezsim.engine.solvers.rigid.rigid_solver_decomp import _sanitize_sol_params
 
-    # Get mapping between Mujoco and Genesis
+    # Get mapping between Mujoco and EzSim
     gs_maps, mj_maps = _get_model_mappings(gs_sim, mj_sim, joints_name, bodies_name)
     (gs_bodies_idx, gs_joints_idx, gs_q_idx, gs_dofs_idx, gs_geoms_idx, gs_motors_idx) = gs_maps
     (mj_bodies_idx, mj_joints_idx, mj_qs_idx, mj_dofs_idx, mj_geoms_idx, mj_motors_idx) = mj_maps
@@ -593,19 +593,19 @@ def check_mujoco_model_consistency(
     if mj_solver.name == "mjSOL_PGS":
         assert False
     elif mj_solver.name == "mjSOL_CG":
-        assert gs_sim.rigid_solver._options.constraint_solver == gs.constraint_solver.CG
+        assert gs_sim.rigid_solver._options.constraint_solver == ezsim.constraint_solver.CG
     elif mj_solver.name == "mjSOL_NEWTON":
-        assert gs_sim.rigid_solver._options.constraint_solver == gs.constraint_solver.Newton
+        assert gs_sim.rigid_solver._options.constraint_solver == ezsim.constraint_solver.Newton
     else:
         assert False
 
     mj_integrator = mujoco.mjtIntegrator(mj_sim.model.opt.integrator)
     if mj_integrator.name == "mjINT_EULER":
-        assert gs_sim.rigid_solver._options.integrator == gs.integrator.Euler
+        assert gs_sim.rigid_solver._options.integrator == ezsim.integrator.Euler
     elif mj_integrator.name == "mjINT_IMPLICIT":
         assert False
     elif mj_integrator.name == "mjINT_IMPLICITFAST":
-        assert gs_sim.rigid_solver._options.integrator == gs.integrator.implicitfast
+        assert gs_sim.rigid_solver._options.integrator == ezsim.integrator.implicitfast
     else:
         assert False
 
@@ -657,7 +657,7 @@ def check_mujoco_model_consistency(
     mj_dof_armature = mj_sim.model.dof_armature
     assert_allclose(gs_dof_armature[gs_dofs_idx], mj_dof_armature[mj_dofs_idx], tol=tol)
 
-    # FIXME: 1 stiffness per joint in Mujoco, 1 stiffness per DoF in Genesis
+    # FIXME: 1 stiffness per joint in Mujoco, 1 stiffness per DoF in EzSim
     gs_dof_stiffness = gs_sim.rigid_solver.dofs_info.stiffness.to_numpy()
     mj_dof_stiffness = mj_sim.model.jnt_stiffness
     # assert_allclose(gs_dof_stiffness[gs_dofs_idx], mj_dof_stiffness[mj_joints_idx], tol=tol)
@@ -666,7 +666,7 @@ def check_mujoco_model_consistency(
     mj_dof_invweight0 = mj_sim.model.dof_invweight0
     assert_allclose(gs_dof_invweight0[gs_dofs_idx], mj_dof_invweight0[mj_dofs_idx], tol=tol)
 
-    # TODO: Genesis does not support frictionloss contraint at dof level for now
+    # TODO: EzSim does not support frictionloss contraint at dof level for now
     gs_joint_solparams = np.array([joint.sol_params.cpu() for entity in gs_sim.entities for joint in entity.joints])
     mj_joint_solparams = np.concatenate((mj_sim.model.jnt_solref, mj_sim.model.jnt_solimp), axis=-1)
     _sanitize_sol_params(
@@ -726,7 +726,7 @@ def check_mujoco_data_consistency(
     qvel_prev: np.ndarray | None = None,
     tol: float,
 ):
-    # Get mapping between Mujoco and Genesis
+    # Get mapping between Mujoco and EzSim
     gs_maps, mj_maps = _get_model_mappings(gs_sim, mj_sim, joints_name, bodies_name)
     (gs_bodies_idx, _, gs_q_idx, gs_dofs_idx, _, _) = gs_maps
     (mj_bodies_idx, _, mj_qs_idx, mj_dofs_idx, _, _) = mj_maps
@@ -946,7 +946,7 @@ def check_mujoco_data_consistency(
 
 
 def simulate_and_check_mujoco_consistency(gs_sim, mj_sim, qpos=None, qvel=None, *, tol, num_steps):
-    # Get mapping between Mujoco and Genesis
+    # Get mapping between Mujoco and EzSim
     _, (_, _, mj_qs_idx, mj_dofs_idx, _, _) = _get_model_mappings(gs_sim, mj_sim)
 
     # Make sure that "static" model information are matching
@@ -962,7 +962,7 @@ def simulate_and_check_mujoco_consistency(gs_sim, mj_sim, qpos=None, qvel=None, 
         # Make sure that all "dynamic" quantities are matching before stepping
         check_mujoco_data_consistency(gs_sim, mj_sim, qvel_prev=qvel_prev, tol=tol)
 
-        # Keep Mujoco and Genesis simulation in sync to avoid drift over time
+        # Keep Mujoco and EzSim simulation in sync to avoid drift over time
         mj_sim.data.qpos[mj_qs_idx] = gs_sim.rigid_solver.qpos.to_numpy()[:, 0]
         mj_sim.data.qvel[mj_dofs_idx] = gs_sim.rigid_solver.dofs_state.vel.to_numpy()[:, 0]
         mj_sim.data.qacc_warmstart[mj_dofs_idx] = gs_sim.rigid_solver.constraint_solver.qacc_ws.to_numpy()[:, 0]
@@ -971,7 +971,7 @@ def simulate_and_check_mujoco_consistency(gs_sim, mj_sim, qpos=None, qvel=None, 
         # Backup current velocity
         qvel_prev = gs_sim.rigid_solver.dofs_state.vel.to_numpy()[:, 0]
 
-        # Do a single simulation step (eventually with substeps for Genesis)
+        # Do a single simulation step (eventually with substeps for EzSim)
         mujoco.mj_step(mj_sim.model, mj_sim.data)
         gs_sim.scene.step()
         # if gs_sim.scene.visualizer:

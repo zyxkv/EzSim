@@ -97,7 +97,7 @@ class Viewer(RBC):
                         env_separate_rigid=self.context.env_separate_rigid,
                         enable_interaction=self._enable_interaction,
                         viewer_flags={
-                            "window_title": f"Genesis {ezsim.__version__}",
+                            "window_title": f"EzSim {ezsim.__version__}",
                             "refresh_rate": self._refresh_rate,
                         },
                     )
