@@ -94,32 +94,16 @@ class Mesh(RBC):
         """
         if self._mesh.vertices.shape[0] > 3 and self._mesh.faces.shape[0] > decimate_face_num:
             self._mesh.process(validate=True)
-            # TODO: lossless option support is pending on fast_simplification package.
-            # NOTE: https://github.com/pyvista/fast-simplification/pull/71
-            if decimate_aggressiveness == 0:
-                ezsim.logger.debug("Lossless simplification is not supported yet. Not applying simplification.")
-                self._mesh = trimesh.Trimesh(
-                    vertices=self._mesh.vertices,
-                    faces=self._mesh.faces,
+            # FIXME: change to fast-simplification 0.1.12(latest Aug.5.2025)
+            self._mesh = trimesh.Trimesh(
+                *fast_simplification.simplify(
+                    self._mesh.vertices,
+                    self._mesh.faces,
+                    target_count=decimate_face_num,
+                    agg=decimate_aggressiveness,
+                    lossless=(decimate_aggressiveness == 0),
                 )
-            else:
-                self._mesh = trimesh.Trimesh(
-                    *fast_simplification.simplify(
-                        self._mesh.vertices,
-                        self._mesh.faces,
-                        target_count=decimate_face_num,
-                        agg=decimate_aggressiveness,
-                    )
-                )
-            # self._mesh = trimesh.Trimesh(
-            #     *fast_simplification.simplify(
-            #         self._mesh.vertices,
-            #         self._mesh.faces,
-            #         target_count=decimate_face_num,
-            #         agg=decimate_aggressiveness,
-            #         lossless=(decimate_aggressiveness == 0),
-            #     )
-            # )
+            )
 
             # need to run convexify again after decimation, because sometimes decimating a convex-mesh can make it non-convex...
             if convexify:

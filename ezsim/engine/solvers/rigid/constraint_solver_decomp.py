@@ -1230,14 +1230,17 @@ def func_solve(
                 )
                 if constraint_state.improved[i_b] < 1:
                     break
+                #############################################
+                # Deprecated code, kept for reference
+                #############################################
 
-                gradient = ezsim.ti_float(0.0)
-                for i_d in range(n_dofs):
-                    gradient += constraint_state.grad[i_d, i_b] * constraint_state.grad[i_d, i_b]
-                gradient = ti.sqrt(gradient)
-                improvement = constraint_state.prev_cost[i_b] - constraint_state.cost[i_b]
-                if gradient < tol_scaled or improvement < tol_scaled:
-                    break
+                # gradient = ezsim.ti_float(0.0)
+                # for i_d in range(n_dofs):
+                #     gradient += constraint_state.grad[i_d, i_b] * constraint_state.grad[i_d, i_b]
+                # gradient = ti.sqrt(gradient)
+                # improvement = constraint_state.prev_cost[i_b] - constraint_state.cost[i_b]
+                # if gradient < tol_scaled or improvement < tol_scaled:
+                #     break
 
 
 @ti.func
@@ -1303,10 +1306,10 @@ def func_ls_point_fn(
     alpha,
     constraint_state: array_class.ConstraintState,
 ):
-    tmp_quad_total0, tmp_quad_total1, tmp_quad_total2 = ezsim.ti_float(0.0), ezsim.ti_float(0.0), ezsim.ti_float(0.0)
-    tmp_quad_total0 = constraint_state.quad_gauss[0, i_b]
-    tmp_quad_total1 = constraint_state.quad_gauss[1, i_b]
-    tmp_quad_total2 = constraint_state.quad_gauss[2, i_b]
+    tmp_quad_total_0, tmp_quad_total_1, tmp_quad_total_2 = ezsim.ti_float(0.0), ezsim.ti_float(0.0), ezsim.ti_float(0.0)
+    tmp_quad_total_0 = constraint_state.quad_gauss[0, i_b]
+    tmp_quad_total_1 = constraint_state.quad_gauss[1, i_b]
+    tmp_quad_total_2 = constraint_state.quad_gauss[2, i_b]
     for i_c in range(constraint_state.n_constraints[i_b]):
         x = constraint_state.Jaref[i_c, i_b] + alpha * constraint_state.jv[i_c, i_b]
         active = 1
@@ -1333,15 +1336,16 @@ def func_ls_point_fn(
         elif i_c >= nef:
             active = x < 0
 
-        tmp_quad_total0 += qf_0 * active
-        tmp_quad_total1 += qf_1 * active
-        tmp_quad_total2 += qf_2 * active
+        tmp_quad_total_0 += qf_0 * active
+        tmp_quad_total_1 += qf_1 * active
+        tmp_quad_total_2 += qf_2 * active
 
-    cost = alpha * alpha * tmp_quad_total2 + alpha * tmp_quad_total1 + tmp_quad_total0
+    cost = alpha * alpha * tmp_quad_total_2 + alpha * tmp_quad_total_1 + tmp_quad_total_0
 
-    deriv_0 = 2 * alpha * tmp_quad_total2 + tmp_quad_total1
-    deriv_1 = 2 * tmp_quad_total2 + ezsim.EPS * (ti.abs(tmp_quad_total2) < ezsim.EPS)
-
+    deriv_0 = 2 * alpha * tmp_quad_total_2 + tmp_quad_total_1
+    deriv_1 = 2 * tmp_quad_total_2 + ezsim.EPS * (ti.abs(tmp_quad_total_2) < ezsim.EPS)
+    if deriv_1 <= 0.0:
+        deriv_1 = ezsim.EPS
     constraint_state.ls_its[i_b] = constraint_state.ls_its[i_b] + 1
 
     return alpha, cost, deriv_0, deriv_1
@@ -1617,7 +1621,7 @@ def func_solve_body(
     if ti.abs(alpha) < ezsim.EPS:
         constraint_state.improved[i_b] = 0
     else:
-        constraint_state.improved[i_b] = 1
+        # constraint_state.improved[i_b] = 1
         for i_d in range(n_dofs):
             constraint_state.qacc[i_d, i_b] = (
                 constraint_state.qacc[i_d, i_b] + constraint_state.search[i_d, i_b] * alpha
@@ -1641,57 +1645,113 @@ def func_solve_body(
             constraint_state=constraint_state,
             static_rigid_sim_config=static_rigid_sim_config,
         )
-
-        if ti.static(static_rigid_sim_config.solver_type == ezsim.constraint_solver.CG):
-            func_update_gradient(
+        
+        if ti.static(static_rigid_sim_config.solver_type == ezsim.constraint_solver.Newton):
+            func_nt_hessian_incremental(
                 i_b,
-                dofs_state=dofs_state,
                 entities_info=entities_info,
-                rigid_global_info=rigid_global_info,
                 constraint_state=constraint_state,
+                rigid_global_info=rigid_global_info,
                 static_rigid_sim_config=static_rigid_sim_config,
             )
+        
+        func_update_gradient(
+            i_b,
+            dofs_state=dofs_state,
+            entities_info=entities_info,
+            rigid_global_info=rigid_global_info,
+            constraint_state=constraint_state,
+            static_rigid_sim_config=static_rigid_sim_config,
+        )
 
-            constraint_state.cg_beta[i_b] = ezsim.ti_float(0.0)
-            constraint_state.cg_pg_dot_pMg[i_b] = ezsim.ti_float(0.0)
+        tol_scaled = (rigid_global_info.meaninertia[i_b] * ti.max(1, n_dofs)) * static_rigid_sim_config.tolerance
+        improvement = constraint_state.prev_cost[i_b] - constraint_state.cost[i_b]
+        gradient = ezsim.ti_float(0.0)
+        for i_d in range(n_dofs):
+            gradient += constraint_state.grad[i_d, i_b] * constraint_state.grad[i_d, i_b]
+        gradient = ti.sqrt(gradient)
+        if gradient < tol_scaled or improvement < tol_scaled:
+            constraint_state.improved[i_b] = 0
+        else:
+            constraint_state.improved[i_b] = 1
 
-            for i_d in range(n_dofs):
-                constraint_state.cg_beta[i_b] += constraint_state.grad[i_d, i_b] * (
-                    constraint_state.Mgrad[i_d, i_b] - constraint_state.cg_prev_Mgrad[i_d, i_b]
-                )
-                constraint_state.cg_pg_dot_pMg[i_b] += (
-                    constraint_state.cg_prev_Mgrad[i_d, i_b] * constraint_state.cg_prev_grad[i_d, i_b]
-                )
-
-            constraint_state.cg_beta[i_b] = ti.max(
-                0.0, constraint_state.cg_beta[i_b] / ti.max(ezsim.EPS, constraint_state.cg_pg_dot_pMg[i_b])
-            )
-            for i_d in range(n_dofs):
-                constraint_state.search[i_d, i_b] = (
-                    -constraint_state.Mgrad[i_d, i_b]
-                    + constraint_state.cg_beta[i_b] * constraint_state.search[i_d, i_b]
-                )
-
-        elif ti.static(static_rigid_sim_config.solver_type == ezsim.constraint_solver.Newton):
-            improvement = constraint_state.prev_cost[i_b] - constraint_state.cost[i_b]
-            if improvement > 0:
-                func_nt_hessian_incremental(
-                    i_b,
-                    entities_info=entities_info,
-                    constraint_state=constraint_state,
-                    rigid_global_info=rigid_global_info,
-                    static_rigid_sim_config=static_rigid_sim_config,
-                )
-                func_update_gradient(
-                    i_b,
-                    dofs_state=dofs_state,
-                    entities_info=entities_info,
-                    rigid_global_info=rigid_global_info,
-                    constraint_state=constraint_state,
-                    static_rigid_sim_config=static_rigid_sim_config,
-                )
+            if ti.static(static_rigid_sim_config.solver_type == ezsim.constraint_solver.Newton):
                 for i_d in range(n_dofs):
                     constraint_state.search[i_d, i_b] = -constraint_state.Mgrad[i_d, i_b]
+            else:
+                constraint_state.cg_beta[i_b] = ezsim.ti_float(0.0)
+                constraint_state.cg_pg_dot_pMg[i_b] = ezsim.ti_float(0.0)
+                for i_d in range(n_dofs):
+                    constraint_state.cg_beta[i_b] += constraint_state.grad[i_d, i_b] * (
+                        constraint_state.Mgrad[i_d, i_b] - constraint_state.cg_prev_Mgrad[i_d, i_b]
+                    )
+                    constraint_state.cg_pg_dot_pMg[i_b] += (
+                        constraint_state.cg_prev_Mgrad[i_d, i_b] * constraint_state.cg_prev_grad[i_d, i_b]
+                    )
+
+                constraint_state.cg_beta[i_b] = ti.max(
+                    0.0, constraint_state.cg_beta[i_b] / ti.max(ezsim.EPS, constraint_state.cg_pg_dot_pMg[i_b])
+                )
+                for i_d in range(n_dofs):
+                    constraint_state.search[i_d, i_b] = (
+                        -constraint_state.Mgrad[i_d, i_b]
+                        + constraint_state.cg_beta[i_b] * constraint_state.search[i_d, i_b]
+                    )
+
+        ######################################
+        # Deprecated code, kept for reference
+        ######################################
+
+        # if ti.static(static_rigid_sim_config.solver_type == ezsim.constraint_solver.CG):
+        #     func_update_gradient(
+        #         i_b,
+        #         dofs_state=dofs_state,
+        #         entities_info=entities_info,
+        #         rigid_global_info=rigid_global_info,
+        #         constraint_state=constraint_state,
+        #         static_rigid_sim_config=static_rigid_sim_config,
+        #     )
+
+        #     constraint_state.cg_beta[i_b] = ezsim.ti_float(0.0)
+        #     constraint_state.cg_pg_dot_pMg[i_b] = ezsim.ti_float(0.0)
+
+        #     for i_d in range(n_dofs):
+        #         constraint_state.cg_beta[i_b] += constraint_state.grad[i_d, i_b] * (
+        #             constraint_state.Mgrad[i_d, i_b] - constraint_state.cg_prev_Mgrad[i_d, i_b]
+        #         )
+        #         constraint_state.cg_pg_dot_pMg[i_b] += (
+        #             constraint_state.cg_prev_Mgrad[i_d, i_b] * constraint_state.cg_prev_grad[i_d, i_b]
+        #         )
+
+        #     constraint_state.cg_beta[i_b] = ti.max(
+        #         0.0, constraint_state.cg_beta[i_b] / ti.max(ezsim.EPS, constraint_state.cg_pg_dot_pMg[i_b])
+        #     )
+        #     for i_d in range(n_dofs):
+        #         constraint_state.search[i_d, i_b] = (
+        #             -constraint_state.Mgrad[i_d, i_b]
+        #             + constraint_state.cg_beta[i_b] * constraint_state.search[i_d, i_b]
+        #         )
+
+        # elif ti.static(static_rigid_sim_config.solver_type == ezsim.constraint_solver.Newton):
+        #     improvement = constraint_state.prev_cost[i_b] - constraint_state.cost[i_b]
+        #     if improvement > 0:
+        #         func_nt_hessian_incremental(
+        #             i_b,
+        #             entities_info=entities_info,
+        #             constraint_state=constraint_state,
+        #             rigid_global_info=rigid_global_info,
+        #             static_rigid_sim_config=static_rigid_sim_config,
+        #         )
+        #         func_update_gradient(
+        #             i_b,
+        #             dofs_state=dofs_state,
+        #             entities_info=entities_info,
+        #             rigid_global_info=rigid_global_info,
+        #             constraint_state=constraint_state,
+        #             static_rigid_sim_config=static_rigid_sim_config,
+        #         )
+        #         for i_d in range(n_dofs):
+        #             constraint_state.search[i_d, i_b] = -constraint_state.Mgrad[i_d, i_b]
 
 
 @ti.func
