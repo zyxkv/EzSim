@@ -83,8 +83,8 @@ def main():
     for i in range(args.n_steps):
         scene.step()
         if args.render_all_cameras:
-            rgba, depth, _, _ = scene.render_all_cameras(rgb=True, depth=True)
-            exporter.export_frame_all_cameras(i, rgb=rgba, depth=depth)
+            rgba, depth, normal_color, seg_color = scene.render_all_cameras(rgb=True, depth=True, normal=True,segmentation=True)
+            exporter.export_frame_all_cameras(i, rgb=rgba, depth=depth,normal=normal_color, segmentation=seg_color) 
         else:
             rgba, depth, _, _ = cam_1.render(rgb=True, depth=True)
             exporter.export_frame_single_camera(i, cam_1.idx, rgb=rgba, depth=depth)

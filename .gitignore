@@ -152,10 +152,12 @@ dmypy.json
 #
 *.mp4
 *.npz
-IMU_Design.md
+IMU_*.md
 *_code_example.py
-test_body_frame_functions.py
 /tests/test_imu_sensor.py
 ext_assets/
 /img_output
-test_render_standalone.py
+examples/video
+test_*.py
+DIFF_*.md
+analyze_*.py

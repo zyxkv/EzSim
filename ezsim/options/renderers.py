@@ -113,3 +113,31 @@ class BatchRenderer(RendererOptions):
     """
 
     use_rasterizer: bool = False
+
+
+class DiffBatchRenderer(RendererOptions):
+    """
+    DiffBatchRenderer - High-performance differentiable batch renderer optimized for PyTorch-based physics learning.
+    
+    This renderer provides significant performance improvements over the standard BatchRenderer by using:
+    - Zero-copy memory management with persistent GPU buffers
+    - Direct PyTorch tensor operations without CPU-GPU transfers
+    - Gradient-friendly operations for differentiable physics
+    - Optimized data structures for training workflows
+
+    Parameters
+    ----------
+    use_rasterizer : bool, optional
+        Whether to use the rasterizer renderer. Defaults to True.
+    enable_gradient : bool, optional
+        Enable gradient computation for differentiable rendering. Defaults to True.
+    channels_last : bool, optional
+        Use PyTorch channels_last memory format for better performance. Defaults to True.
+    pin_memory : bool, optional
+        Pin memory for faster CPU-GPU transfers. Defaults to False.
+    """
+
+    use_rasterizer: bool = True
+    enable_gradient: bool = True  
+    channels_last: bool = True
+    pin_memory: bool = False

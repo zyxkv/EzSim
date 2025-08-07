@@ -97,6 +97,10 @@ class Visualizer(RBC):
             from .batch_renderer import BatchRenderer
             self._renderer = self._batch_renderer = BatchRenderer(self, renderer_options)
         
+        elif isinstance(renderer_options, ezsim.renderers.DiffBatchRenderer):
+            from .diff_batch_renderer import DiffBatchRenderer
+            self._renderer = self._batch_renderer = DiffBatchRenderer(self, renderer_options)
+        
         elif isinstance(renderer_options, ezsim.renderers.RayTracer):
             from .raytracer import Raytracer
             self._renderer = self._raytracer = Raytracer(renderer_options, vis_options)

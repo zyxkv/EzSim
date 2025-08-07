@@ -33,7 +33,7 @@ def main():
         renderer=ezsim.renderers.RayTracer(  # type: ignore
             env_surface=ezsim.surfaces.Emission(
                 emissive_texture=ezsim.textures.ImageTexture(
-                    image_path="textures/indoor_bright.png",
+                    image_path="textures/bg_bright.png",
                 ),
             ),
             env_radius=15.0,
