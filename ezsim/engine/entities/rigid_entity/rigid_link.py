@@ -15,7 +15,8 @@ from .rigid_geom import RigidGeom, RigidVisGeom
 if TYPE_CHECKING:
     from .rigid_entity import RigidEntity
     from ezsim.engine.solvers.rigid.rigid_solver_decomp import RigidSolver
-
+    # optional add pose for rigid links 
+    from ezsim.ext.pyrender.interaction.vec3 import Pose
 
 @ti.data_oriented
 class RigidLink(RBC):
@@ -592,14 +593,14 @@ class RigidLink(RBC):
         return self._invweight
 
     @property
-    def pos(self):
+    def pos(self) -> ArrayLike:
         """
         The initial position of the link. For real-time position, use `link.get_pos()`.
         """
         return self._pos
 
     @property
-    def quat(self):
+    def quat(self) -> ArrayLike:
         """
         The initial quaternion of the link. For real-time quaternion, use `link.get_quat()`.
         """
@@ -745,6 +746,11 @@ class RigidLink(RBC):
         """
         return self.entity.is_free
 
+    @property
+    def pose(self) -> "Pose":
+        """Return the current pose of the link (note, this is not necessarily the same as the principal axes frame)."""
+        return Pose.from_link(self)
+    
     # ------------------------------------------------------------------------------------
     # -------------------------------------- repr ----------------------------------------
     # ------------------------------------------------------------------------------------
