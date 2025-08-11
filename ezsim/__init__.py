@@ -58,6 +58,8 @@ def init(
     global _initialized
     if _initialized:
         raise_exception("EzSim already initialized.")
+    # Make sure evertything is properly destroyed, just in case initialization failed previously
+    destroy()
 
     # ezsim._theme
     global _theme

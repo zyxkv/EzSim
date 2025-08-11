@@ -608,7 +608,8 @@ class Raytracer:
         if camera_model == "pinhole":
             self._cameras[camera_name] = LuisaRenderPy.PinholeCamera(
                 name=camera_name,
-                pose=self.get_transform(camera.transform),
+                # pose=self.get_transform(camera.transform),
+                pose=self.get_transform(np.eye(4)),
                 film=LuisaRenderPy.Film(resolution=camera.res),
                 filter=LuisaRenderPy.Filter(),
                 spp=camera.spp,
@@ -617,7 +618,8 @@ class Raytracer:
         elif camera_model == "thinlens":
             self._cameras[camera_name] = LuisaRenderPy.ThinLensCamera(
                 name=camera_name,
-                pose=self.get_transform(camera.transform),
+                # pose=self.get_transform(camera.transform),
+                pose=self.get_transform(np.eye(4)),
                 film=LuisaRenderPy.Film(resolution=camera.res),
                 filter=LuisaRenderPy.Filter(),
                 spp=camera.spp,

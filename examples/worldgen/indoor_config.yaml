@@ -1,0 +1,36 @@
+# 室内无人机避障训练环境配置文件
+
+# 场景基本尺寸
+scene_extent:
+  x: 40.0    # 房间长度 (米)
+  y: 10.0    # 房间宽度 (米)
+  z: 8.0    # 房间高度 (米)
+
+# 无人机基本参数
+drone_size: 0.3    # 无人机特征尺寸 (米)，用于自适应生成障碍物
+
+# 任务难度: 'easy', 'medium', 'hard'
+difficulty: 'medium'
+
+# 门配置 - 无人机需要穿越的通道
+gates:
+  gate_1:
+    type: 'square'      # 方形门
+    pos: [-8, 0, 1.0]      # 位置 [x, y, z]
+    size: [2, 2]        # 尺寸 [宽度, 高度]
+    direction: 'x'      # 门的方向: 'x' 或 'y'
+    clearance: 5.0      # 门前后需要保持的净空距离
+
+  gate_2:
+    type: 'circle'      # 圆形门
+    pos: [-14, 3, 1.3]     # 位置 [x, y, z]
+    size: [0.7,0.6]          # 尺寸 [半径]
+    direction: 'x'      # 门的方向: 'x' 或 'y'
+    clearance: 5.0      # 门前后需要保持的净空距离
+
+  gate_3:
+    type: 'square'
+    pos: [-10, -2, 1.3]
+    size: [2, 1]
+    direction: 'x'
+    clearance: 5.0

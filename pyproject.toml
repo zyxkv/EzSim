@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 # name = "ezsim-nightly"
 # version = "0.0.3"
 name = "ezsim"
-version = "0.2.1"
+version = "0.2.2"
 description = "A universal and generative physics engine"
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
@@ -65,6 +65,8 @@ dependencies = [
     # "gs-madrona>=0.0.2; platform_system == 'Linux' and (platform_machine == 'x86_64' or platform_machine == 'AMD64')",
     # Used for mesh simplification
     "fast_simplification>=0.1.12",
+    # Surface reconstruction library for particle data from SPH simulations
+    "pysplashsurf",
 ]
 
 [project.optional-dependencies]
@@ -79,6 +81,7 @@ dev = [
     "syrupy",
     "huggingface_hub",
     "wandb",
+    "ipython",
 ]
 docs = [
     # Note that currently sphinx 7 does not work, so we must use v6.2.1. See https://github.com/kivy/kivy/issues/8230 which tracks this issue. Once fixed we can use a later version

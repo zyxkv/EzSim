@@ -69,6 +69,7 @@ class Surface(Options):
         Controls the threshold for computing surface normals by interpolating vertex normals.
     recon_backend : str, optional
         Backend for surface reconstruction. Possible values are ['splashsurf', 'openvdb'].
+        Defaults to 'splashsurf'.
     generate_foam : bool, optional
         Whether to generate foam particles for visual effects for particle-based entities.
     foam_options : ezsim.options.FoamOptions, optional
@@ -94,12 +95,13 @@ class Surface(Options):
 
     vis_mode: Optional[str] = None  # ['visual', 'particle', 'collision', 'sdf', 'recon']
     smooth: bool = True  # whether to smooth face normals by interpolating vertex normals
-    double_sided: Optional[bool] = (
-        None  # whether to render both sides of the surface. Defaults to True for Cloth material and False for others.
-    )
+    # double_sided: Optional[bool] = (
+    #     None  # whether to render both sides of the surface. Defaults to True for Cloth material and False for others.
+    # )
+    double_sided: Optional[bool] = None
     beam_angle: float = 180
     normal_diff_clamp: float = 180
-    recon_backend: str = "splashsurf"  # backend for surface recon
+    recon_backend: str = "splashsurf" 
     generate_foam: bool = False
     foam_options: Optional[FoamOptions] = None
 

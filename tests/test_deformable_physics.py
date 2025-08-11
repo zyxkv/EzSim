@@ -150,7 +150,7 @@ def test_deformable_parallel(show_viewer):
         ),
         surface=ezsim.surfaces.Default(
             color=(0.2, 0.6, 1.0, 1.0),
-            vis_mode="particle",
+            # vis_mode="particle",
         ),
     )
     mpm_cube = scene.add_entity(
@@ -161,7 +161,7 @@ def test_deformable_parallel(show_viewer):
         ),
         surface=ezsim.surfaces.Default(
             color=(0.9, 0.8, 0.2, 1.0),
-            vis_mode="particle",
+            # vis_mode="particle",
         ),
     )
 

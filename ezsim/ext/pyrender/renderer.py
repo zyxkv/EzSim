@@ -115,7 +115,7 @@ class Renderer(object):
     def point_size(self, value):
         self._point_size = float(value)
 
-    def render(self, scene, flags, seg_node_map=None, is_first_pass=True):
+    def render(self, scene, flags, seg_node_map=None, *, is_first_pass=True, force_skip_shadows=False):
         """Render a scene with the given set of flags.
 
         Parameters
@@ -145,7 +145,7 @@ class Renderer(object):
             self.jit.update(scene)
 
         # if bool(flags & RenderFlags.DEPTH_ONLY or flags & RenderFlags.SEG or flags & RenderFlags.FLAT):
-        if flags & RenderFlags.DEPTH_ONLY or flags & RenderFlags.SEG or flags & RenderFlags.FLAT:
+        if flags & RenderFlags.SEG or flags & RenderFlags.DEPTH_ONLY or flags & RenderFlags.FLAT:
             flags &= ~RenderFlags.REFLECTIVE_FLOOR
 
         # if bool(flags & RenderFlags.ENV_SEPARATE) and bool(flags & RenderFlags.OFFSCREEN):
@@ -162,7 +162,7 @@ class Renderer(object):
 
             # Render necessary shadow maps
             # if not bool(flags & RenderFlags.DEPTH_ONLY or flags & RenderFlags.SEG):
-            if not (flags & RenderFlags.DEPTH_ONLY or flags & RenderFlags.SEG):
+            if not (force_skip_shadows or flags & RenderFlags.SEG or flags & RenderFlags.DEPTH_ONLY):
                 for ln in scene.light_nodes:
                     take_pass = False
                     if isinstance(ln.light, DirectionalLight) and bool(flags & RenderFlags.SHADOWS_DIRECTIONAL):
@@ -183,36 +183,30 @@ class Renderer(object):
                 self._floor_pass(scene, flags, env_idx=env_idx)
 
             retval = self._forward_pass(scene, flags, seg_node_map=seg_node_map, env_idx=env_idx)
-            if isinstance(retval, tuple):
+            # if isinstance(retval, tuple):
+            if retval is not None:
                 if retval_list is None:
-                    retval_list = tuple([[val] for val in retval])
+                    # retval_list = tuple([[val] for val in retval])
+                    retval_list = tuple([val] for val in retval)
                 else:
                     for idx, val in enumerate(retval):
                         retval_list[idx].append(val)
-            elif retval is not None:
-                if retval_list is None:
-                    retval_list = [retval]
-                else:
-                    retval_list.append(retval)
 
             # If necessary, make normals pass
             if flags & (RenderFlags.VERTEX_NORMALS | RenderFlags.FACE_NORMALS):
                 self._normals_pass(scene, flags, env_idx=env_idx)
 
-        if use_env_idx:
-            if isinstance(retval_list, list):
-                retval_list = np.stack(retval_list, axis=0)
-            elif isinstance(retval_list, tuple):
-                retval_list = tuple([np.stack(val_list, axis=0) for val_list in retval_list])
-        else:
-            if isinstance(retval_list, list):
-                retval_list = retval_list[0]
-            elif isinstance(retval_list, tuple):
-                retval_list = tuple([val_list[0] for val_list in retval_list])
-
         # Update camera settings for retrieving depth buffers
         self._latest_znear = scene.main_camera_node.camera.znear
         self._latest_zfar = scene.main_camera_node.camera.zfar
+
+        if retval_list is None:
+            return
+
+        if use_env_idx:
+            retval_list = tuple(np.stack(val_list, axis=0) for val_list in retval_list)
+        else:
+            retval_list = tuple([val_list[0] for val_list in retval_list])
 
         return retval_list
 
@@ -508,7 +502,7 @@ class Renderer(object):
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
-        if not bool(flags & RenderFlags.SEG):
+        if flags & RenderFlags.SEG or flags & RenderFlags.DEPTH_ONLY:
             glEnable(GL_MULTISAMPLE)
         else:
             glDisable(GL_MULTISAMPLE)
@@ -579,7 +573,7 @@ class Renderer(object):
         # plt.show()
         # plt.savefig('tmp/tmp_dep.jpg')
 
-    def _normals_pass(self, scene, flags, env_idx=-1):
+    def _normal_pass(self, scene, flags, env_idx=-1):
         # Set up viewport for render
         self._configure_forward_pass_viewport(flags)
         program = None
@@ -1083,7 +1077,7 @@ class Renderer(object):
         # If using offscreen render, bind main framebuffer
         if flags & RenderFlags.OFFSCREEN:
             self._configure_main_framebuffer()
-            if flags & RenderFlags.SEG:
+            if flags & RenderFlags.SEG or flags & RenderFlags.DEPTH_ONLY:
                 glBindFramebuffer(GL_DRAW_FRAMEBUFFER, self._main_fb)
             else:
                 glBindFramebuffer(GL_DRAW_FRAMEBUFFER, self._main_fb_ms)
@@ -1242,7 +1236,7 @@ class Renderer(object):
     def _read_main_framebuffer(self, scene, flags):
         width, height = self._main_fb_dims[0], self._main_fb_dims[1]
 
-        if not (flags & RenderFlags.SEG):
+        if not (flags & RenderFlags.SEG or flags & RenderFlags.DEPTH_ONLY):
             # Bind framebuffer and blit buffers
             glBindFramebuffer(GL_READ_FRAMEBUFFER, self._main_fb_ms)
             glBindFramebuffer(GL_DRAW_FRAMEBUFFER, self._main_fb)
@@ -1267,7 +1261,7 @@ class Renderer(object):
             depth_im = None
 
         if flags & RenderFlags.DEPTH_ONLY:
-            return depth_im
+            return (depth_im,)
 
         # Read color
         color_im = self.jit.read_color_buf(width, height, flags & RenderFlags.RGBA)
@@ -1278,7 +1272,9 @@ class Renderer(object):
         # Resize
         color_im = self._resize_image(color_im, antialias=not flags & RenderFlags.SEG)
 
-        return color_im, depth_im
+        if flags & RenderFlags.RET_DEPTH:
+            return color_im, depth_im
+        return (color_im,)
 
     def _resize_image(self, value, antialias):
         """Rescale the generated image if necessary."""

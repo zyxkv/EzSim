@@ -1840,6 +1840,33 @@ class RigidEntity(Entity):
         if zero_velocity:
             self.zero_all_dofs_velocity(envs_idx, unsafe=unsafe)
 
+    # @ezsim.assert_built
+    # def get_weld_constraints(self, with_entity=None, exclude_self_contact=False):
+    #     welds = self._solver.get_weld_constraints(as_tensor=True, to_torch=True)
+    #     obj_a = welds["obj_a"]
+    #     obj_b = welds["obj_b"]
+
+    #     # Create mask for filtering welds involving this entity
+    #     mask = (obj_a == self.idx) | (obj_b == self.idx)
+
+    #     # Additional filtering if with_entity is specified
+    #     if with_entity is not None:
+    #         if self.idx == with_entity.idx:
+    #             if exclude_self_contact:
+    #                 ezsim.raise_exception("`with_entity` is self but `exclude_self_contact` is True.")
+    #             # For self-contact, keep only self-welds
+    #             mask = mask & ((obj_a == self.idx) & (obj_b == self.idx))
+    #         else:
+    #             # For cross-entity, keep welds between this entity and with_entity
+    #             mask = mask & ((obj_a == with_entity.idx) | (obj_b == with_entity.idx))
+
+    #     # Apply filtering
+    #     for k in ("obj_a", "obj_b"):
+    #         welds[k] = welds[k][mask]
+
+    #     return welds
+
+
     @ezsim.assert_built
     def set_quat(self, quat, envs_idx=None, *, relative=False, zero_velocity=True, unsafe=False):
         """

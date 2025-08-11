@@ -143,6 +143,12 @@ class Camera(Sensor):
             self._focus_dist = np.linalg.norm(np.asarray(lookat) - np.asarray(pos))
     
     def build(self):
+        n_envs = max(self._visualizer.scene.n_envs, 1)
+        self._multi_env_pos_tensor = torch.empty((n_envs, 3), dtype=ezsim.tc_float, device=ezsim.device)
+        self._multi_env_lookat_tensor = torch.empty((n_envs, 3), dtype=ezsim.tc_float, device=ezsim.device)
+        self._multi_env_up_tensor = torch.empty((n_envs, 3), dtype=ezsim.tc_float, device=ezsim.device)
+        self._multi_env_transform_tensor = torch.empty((n_envs, 4, 4), dtype=ezsim.tc_float, device=ezsim.device)
+        self._multi_env_quat_tensor = torch.empty((n_envs, 4), dtype=ezsim.tc_float, device=ezsim.device)
         self._envs_offset = torch.as_tensor(self._visualizer._scene.envs_offset, dtype=ezsim.tc_float, device=ezsim.device)
         self._batch_renderer = self._visualizer.batch_renderer
         self._rasterizer = self._visualizer.rasterizer
@@ -166,7 +172,13 @@ class Camera(Sensor):
                 self._other_stacked = self._visualizer._context.env_separate_rigid
         
         self._is_built = True
-        self.setup_initial_env_poses()
+        # self.setup_initial_env_poses()
+        self.set_pose(
+            transform=self._initial_transform, pos=self._initial_pos, lookat=self._initial_lookat, up=self._initial_up
+        )
+        # FIXME: For some reason, it is necessary to update the camera twice...
+        if self._raytracer is not None:
+            self._raytracer.update_camera(self)
     
         # self._rgb_stacked = self._visualizer._context.env_separate_rigid
         # self._other_stacked = self._visualizer._context.env_separate_rigid
@@ -353,8 +365,8 @@ class Camera(Sensor):
         depth=False,
         segmentation=False,
         normal=False,
+        antialiasing=True,
         force_render=False,
-        antialiasing=False,
     ):
         """
          Render the camera view with batch renderer.
@@ -425,7 +437,7 @@ class Camera(Sensor):
         force_render : bool, optional
             Whether to force rendering even if the scene has not changed.
         antialiasing : bool, optional
-            Whether to apply anti-aliasing.
+            Whether to apply anti-aliasing. Only supported by 'BatchRenderer' for now.
 
         Returns
         -------
@@ -439,10 +451,7 @@ class Camera(Sensor):
             The rendered surface normal(s).
         """
 
-        if (rgb or depth or segmentation or normal) is False:
-            ezsim.raise_exception("Nothing to render.")
-
-        rgb_arr, depth_arr, seg_arr, seg_color_arr, normal_arr = None, None, None, None, None
+        rgb_arr, depth_arr, seg_arr, seg_color_arr, seg_idxc_arr, normal_arr = None, None, None, None, None, None
 
         if self._batch_renderer is not None:
             rgb_arr, depth_arr, seg_idxc_arr, normal_arr = self._batch_render(
@@ -557,7 +566,8 @@ class Camera(Sensor):
     @ezsim.assert_built
     def render_pointcloud(self, world_frame=True):
         """
-        Render a partial point cloud from the camera view. Returns a (res[0], res[1], 3) numpy array representing the point cloud in each pixel.
+        Render a partial point cloud from the camera view. 
+        
         Parameters
         ----------
         world_frame : bool, optional
@@ -565,109 +575,144 @@ class Camera(Sensor):
         Returns
         -------
         pc : np.ndarray
-            the point cloud
+            Numpy array of shape (res[0], res[1], 3) representing the point cloud in each pixel.
         mask_arr : np.ndarray
             The valid depth mask.
         """
+        # Compute the (denormalized) depth map using PyRender systematically.
+        # TODO: Add support of BatchRendered (requires access to projection matrix)
         self._rasterizer.update_scene()
         rgb_arr, depth_arr, seg_idxc_arr, normal_arr = self._rasterizer.render_camera(
-            self, False, True, False, normal=False
+            self, rgb=False, depth=True, segmentation=False, normal=False
         )
 
-        def opengl_projection_matrix_to_intrinsics(P: np.ndarray, width: int, height: int):
-            """Convert OpenGL projection matrix to camera intrinsics.
-            Args:
-                P (np.ndarray): OpenGL projection matrix.
-                width (int): Image width.
-                height (int): Image height
-            Returns:
-                np.ndarray: Camera intrinsics. [3, 3]
-            """
+        # Convert OpenGL projection matrix to camera intrinsics
+        P = self._rasterizer._camera_nodes[self.uid].camera.get_projection_matrix()
+        height, width = depth_arr.shape
+        fx = P[0, 0] * width / 2.0
+        fy = P[1, 1] * height / 2.0
+        cx = (1.0 - P[0, 2]) * width / 2.0
+        cy = (1.0 + P[1, 2]) * height / 2.0
 
-            fx = P[0, 0] * width / 2
-            fy = P[1, 1] * height / 2
-            cx = (1.0 - P[0, 2]) * width / 2
-            cy = (1.0 + P[1, 2]) * height / 2
+        # Extract camera pose if needed
+        if world_frame:
+            T_OPENGL_TO_OPENCV = np.array([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]], dtype=np.float32)
+            cam_pose = self._rasterizer._camera_nodes[self.uid].matrix @ T_OPENGL_TO_OPENCV
 
-            K = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
-            return K
+        # Mask out invalid depth
+        mask = np.where((self.near < depth_arr) & (depth_arr < self.far * (1.0 - 1e-3)))
 
-        def backproject_depth_to_pointcloud(K: np.ndarray, depth: np.ndarray, pose, world, znear, zfar):
-            """Convert depth image to pointcloud given camera intrinsics.
-            Args:
-                depth (np.ndarray): Depth image.
-            Returns:
-                np.ndarray: (x, y, z) Point cloud. [n, m, 3]
-            """
-            _fx = K[0, 0]
-            _fy = K[1, 1]
-            _cx = K[0, 2]
-            _cy = K[1, 2]
+        # Compute normalized pixel coordinates
+        v, u = np.meshgrid(np.arange(height, dtype=np.int32), np.arange(width, dtype=np.int32), indexing="ij")
+        u = u.reshape((-1,))
+        v = v.reshape((-1,))
 
-            # Mask out invalid depth
-            mask = np.where((depth > znear) & (depth < zfar * 0.99))
-            # zfar * 0.99 for filtering out precision error of float
-            height, width = depth.shape
-            y, x = np.meshgrid(np.arange(height, dtype=np.int32), np.arange(width, dtype=np.int32), indexing="ij")
-            x = x.reshape((-1,))
-            y = y.reshape((-1,))
+        # Convert to world coordinates
+        depth_grid = depth_arr[v, u]
+        world_x = depth_grid * (u + 0.5 - cx) / fx
+        world_y = depth_grid * (v + 0.5 - cy) / fy
+        world_z = depth_grid
 
-            # Normalize pixel coordinates
-            normalized_x = x - _cx
-            normalized_y = y - _cy
+        point_cloud = np.stack((world_x, world_y, world_z, np.ones((depth_arr.size,), dtype=np.float32)), axis=-1)
+        if world_frame:
+            point_cloud = point_cloud @ cam_pose.T
+        point_cloud = point_cloud[:, :3].reshape((*depth_arr.shape, 3))
+        return point_cloud, mask
+    
+        # def opengl_projection_matrix_to_intrinsics(P: np.ndarray, width: int, height: int):
+        #     """Convert OpenGL projection matrix to camera intrinsics.
+        #     Args:
+        #         P (np.ndarray): OpenGL projection matrix.
+        #         width (int): Image width.
+        #         height (int): Image height
+        #     Returns:
+        #         np.ndarray: Camera intrinsics. [3, 3]
+        #     """
 
-            # Convert to world coordinates
-            depth_grid = depth[y, x]
-            world_x = normalized_x * depth_grid / _fx
-            world_y = normalized_y * depth_grid / _fy
-            world_z = depth_grid
+        #     fx = P[0, 0] * width / 2
+        #     fy = P[1, 1] * height / 2
+        #     cx = (1.0 - P[0, 2]) * width / 2
+        #     cy = (1.0 + P[1, 2]) * height / 2
 
-            pc = np.stack((world_x, world_y, world_z), axis=1)
+        #     K = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
+        #     return K
 
-            point_cloud_h = np.concatenate((pc, np.ones((len(pc), 1), dtype=np.float32)), axis=1)
-            if world:
-                point_cloud_world = point_cloud_h @ pose.T
-                point_cloud_world = point_cloud_world[:, :3].reshape((*depth.shape, 3))
-                return point_cloud_world, mask
-            else:
-                point_cloud = point_cloud_h[:, :3].reshape((*depth.shape, 3))
-                return point_cloud, mask
+        # def backproject_depth_to_pointcloud(K: np.ndarray, depth: np.ndarray, pose, world, znear, zfar):
+        #     """Convert depth image to pointcloud given camera intrinsics.
+        #     Args:
+        #         depth (np.ndarray): Depth image.
+        #     Returns:
+        #         np.ndarray: (x, y, z) Point cloud. [n, m, 3]
+        #     """
+        #     _fx = K[0, 0]
+        #     _fy = K[1, 1]
+        #     _cx = K[0, 2]
+        #     _cy = K[1, 2]
 
-        intrinsic_K = opengl_projection_matrix_to_intrinsics(
-            self._rasterizer._camera_nodes[self.uid].camera.get_projection_matrix(),
-            width=self.res[0],
-            height=self.res[1],
-        )
+        #     # Mask out invalid depth
+        #     mask = np.where((depth > znear) & (depth < zfar * 0.99))
+        #     # zfar * 0.99 for filtering out precision error of float
+        #     height, width = depth.shape
+        #     y, x = np.meshgrid(np.arange(height, dtype=np.int32), np.arange(width, dtype=np.int32), indexing="ij")
+        #     x = x.reshape((-1,))
+        #     y = y.reshape((-1,))
 
-        T_OPENGL_TO_OPENCV = np.array([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]], dtype=np.float32)
-        cam_pose = self._rasterizer._camera_nodes[self.uid].matrix @ T_OPENGL_TO_OPENCV
+        #     # Normalize pixel coordinates
+        #     normalized_x = x - _cx
+        #     normalized_y = y - _cy
 
-        pc, mask = backproject_depth_to_pointcloud(intrinsic_K, depth_arr, cam_pose, world_frame, self.near, self.far)
+        #     # Convert to world coordinates
+        #     depth_grid = depth[y, x]
+        #     world_x = normalized_x * depth_grid / _fx
+        #     world_y = normalized_y * depth_grid / _fy
+        #     world_z = depth_grid
 
-        return pc, mask
+        #     pc = np.stack((world_x, world_y, world_z), axis=1)
+
+        #     point_cloud_h = np.concatenate((pc, np.ones((len(pc), 1), dtype=np.float32)), axis=1)
+        #     if world:
+        #         point_cloud_world = point_cloud_h @ pose.T
+        #         point_cloud_world = point_cloud_world[:, :3].reshape((*depth.shape, 3))
+        #         return point_cloud_world, mask
+        #     else:
+        #         point_cloud = point_cloud_h[:, :3].reshape((*depth.shape, 3))
+        #         return point_cloud, mask
+
+        # intrinsic_K = opengl_projection_matrix_to_intrinsics(
+        #     self._rasterizer._camera_nodes[self.uid].camera.get_projection_matrix(),
+        #     width=self.res[0],
+        #     height=self.res[1],
+        # )
+
+        # T_OPENGL_TO_OPENCV = np.array([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]], dtype=np.float32)
+        # cam_pose = self._rasterizer._camera_nodes[self.uid].matrix @ T_OPENGL_TO_OPENCV
+
+        # pc, mask = backproject_depth_to_pointcloud(intrinsic_K, depth_arr, cam_pose, world_frame, self.near, self.far)
+
+        # return pc, mask
 
     
-    @ezsim.assert_built
-    def setup_initial_env_poses(self):
-        """
-        Setup the camera poses for multiple environments.
-        """
-        if self._initial_transform is not None:
-            assert self._initial_transform.shape == (4, 4)
-            self._initial_pos, self._initial_lookat, self._initial_up = gu.T_to_pos_lookat_up(self._initial_transform)
-        else:
-            self._initial_transform = gu.pos_lookat_up_to_T(self._initial_pos, self._initial_lookat, self._initial_up)
+    # @ezsim.assert_built
+    # def setup_initial_env_poses(self):
+    #     """
+    #     Setup the camera poses for multiple environments.
+    #     """
+    #     if self._initial_transform is not None:
+    #         assert self._initial_transform.shape == (4, 4)
+    #         self._initial_pos, self._initial_lookat, self._initial_up = gu.T_to_pos_lookat_up(self._initial_transform)
+    #     else:
+    #         self._initial_transform = gu.pos_lookat_up_to_T(self._initial_pos, self._initial_lookat, self._initial_up)
 
-        n_envs = max(self._visualizer.scene.n_envs, 1)
-        self._multi_env_pos_tensor = self._initial_pos.repeat((n_envs, 1))
-        self._multi_env_lookat_tensor = self._initial_lookat.repeat((n_envs, 1))
-        self._multi_env_up_tensor = self._initial_up.repeat((n_envs, 1))
-        self._multi_env_transform_tensor = self._initial_transform.repeat((n_envs, 1, 1))
-        self._multi_env_quat_tensor = _T_to_quat_for_madrona(self._multi_env_transform_tensor)
+    #     n_envs = max(self._visualizer.scene.n_envs, 1)
+    #     self._multi_env_pos_tensor = self._initial_pos.repeat((n_envs, 1))
+    #     self._multi_env_lookat_tensor = self._initial_lookat.repeat((n_envs, 1))
+    #     self._multi_env_up_tensor = self._initial_up.repeat((n_envs, 1))
+    #     self._multi_env_transform_tensor = self._initial_transform.repeat((n_envs, 1, 1))
+    #     self._multi_env_quat_tensor = _T_to_quat_for_madrona(self._multi_env_transform_tensor)
 
-        self._rasterizer.update_camera(self)
-        if self._raytracer is not None:
-            self._raytracer.update_camera(self)
+    #     self._rasterizer.update_camera(self)
+    #     if self._raytracer is not None:
+    #         self._raytracer.update_camera(self)
 
 
     @ezsim.assert_built

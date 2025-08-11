@@ -1,9 +1,12 @@
 import os
+import pickle
+import sys
+import time
+
 
 import numpy as np
 import torch
-import pickle
-import time
+
 import taichi as ti
 from numpy.typing import ArrayLike
 
@@ -540,7 +543,8 @@ class Scene(RBC):
         focus_dist=None,
         GUI=False,
         spp=256,
-        denoise=True,
+        # denoise=True,
+        denoise=None,
         env_idx=None,
     ):
         """
@@ -578,14 +582,16 @@ class Scene(RBC):
             Samples per pixel. Only available when using RayTracer renderer. Defaults to 256.
         denoise : bool
             Whether to denoise the camera's rendered image. Only available when using the RayTracer renderer. Defaults
-            to True. If OptiX denoiser is not available in your platform, consider enabling the OIDN denoiser option
-            when building the RayTracer.
+            to True on Linux, otherwise False. If OptiX denoiser is not available in your platform, consider enabling
+            the OIDN denoiser option when building the RayTracer.
             
         Returns
         -------
         camera : ezsim.Camera
             The created camera object.
         """
+        if denoise is None:
+            denoise = sys.platform != "darwin"
 
         return self._visualizer.add_camera(res, pos, lookat, up, model, fov, aperture, focus_dist, GUI, spp, denoise, env_idx=env_idx)
 
