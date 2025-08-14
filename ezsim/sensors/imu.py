@@ -1,262 +1,169 @@
-from typing import Any, Dict, List, Optional, Union
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any
 
-import numpy as np
 import taichi as ti
 import torch
 
 import ezsim
 from ezsim.engine.entities import RigidEntity
-from ezsim.utils.geom import inv_transform_by_quat, ti_inv_transform_by_quat, transform_by_trans_quat
-from ezsim.utils.misc import tensor_to_array
+from ezsim.engine.solvers import RigidSolver
+from ezsim.utils.geom import (
+    euler_to_quat,
+    inv_transform_by_trans_quat,
+    transform_quat_by_quat,
+)
 
-from .base_sensor import Sensor
+from .base_sensor import Sensor, SensorOptions, SharedSensorMetadata
+from .sensor_manager import register_sensor
 
-
-@dataclass
-class IMUData:
-    """IMU sensor data structure"""
-    lin_acc_body: torch.Tensor    # Linear acceleration in body frame (m/s²)
-    ang_vel_body: torch.Tensor    # Angular velocity in body frame (rad/s)
-    ang_acc_body: torch.Tensor    # Angular acceleration in body frame (rad/s²)
-    lin_vel_body: torch.Tensor    # Linear velocity in body frame (m/s)
-    timestamp: float              # Simulation timestamp
+if TYPE_CHECKING:
+    from ezsim.utils.ring_buffer import TensorRingBuffer
 
 
-@dataclass
-class IMUNoiseConfig:
-    """IMU noise configuration parameters"""
-    # Accelerometer noise parameters
-    accel_noise_density: float = 0.01      # m/s²/√Hz
-    accel_bias_stability: float = 0.001    # m/s²
-    accel_random_walk: float = 0.0001      # m/s²/√s
-    
-    # Gyroscope noise parameters
-    gyro_noise_density: float = 0.001      # rad/s/√Hz
-    gyro_bias_stability: float = 0.0001    # rad/s
-    gyro_random_walk: float = 0.00001      # rad/s/√s
-    
-    # General parameters
-    enable_noise: bool = True
-    seed: int = 42
-
-
-@ti.data_oriented
-class IMUSensor(Sensor):
+class IMUOptions(SensorOptions):
     """
-    Inertial Measurement Unit (IMU) sensor for rigid body simulation.
-    
-    Provides linear acceleration, angular velocity, angular acceleration, and linear velocity
-    measurements in the body frame, with optional realistic noise modeling.
+    IMU sensor returns the linear acceleration (accelerometer) and angular velocity (gyroscope)
+    of the associated entity link.
+
+    Note
+    ----
+    Accelerometers return the so-called classical linear acceleration in local frame minus gravity.
 
     Parameters
     ----------
-    entity : RigidEntity
-        The entity to which this sensor is attached.
-    link_idx : int, optional
-        The index of the link to which this sensor is attached. If None, defaults to the base link.
-    noise_config : IMUNoiseConfig, optional
-        Noise configuration for realistic sensor simulation.
-    update_rate : float, optional
-        Sensor update rate in Hz. Default is 1000.0 Hz.
+    entity_idx : int
+        The global entity index of the RigidEntity to which this IMU sensor is attached.
+    link_idx_local : int, optional
+        The local index of the RigidLink of the RigidEntity to which this IMU sensor is attached.
+    pos_offset : tuple[float, float, float]
+        The offset of the IMU sensor from the RigidLink.
+    euler_offset : tuple[float, float, float]
+        The offset of the IMU sensor from the RigidLink in euler angles.
+    accelerometer_bias : tuple[float, float, float]
+        The bias of the accelerometer.
+    gyroscope_bias : tuple[float, float, float]
+        The bias of the gyroscope.
     """
-    
-    _last_imu_update_step = -1
-    _cached_data: Optional[IMUData] = None
 
-    def __init__(self, 
-                 entity: RigidEntity, 
-                 link_idx: Optional[int] = None,
-                 noise_config: Optional[IMUNoiseConfig] = None,
-                 update_rate: float = 1000.0):
-        
-        self._cls = self.__class__
-        self._entity = entity
-        self._sim = entity._sim
-        self.link_idx = link_idx if link_idx is not None else entity.base_link_idx
-        
-        # Noise configuration
-        self.noise_config = noise_config if noise_config is not None else IMUNoiseConfig(enable_noise=False)
-        self.update_rate = update_rate
-        self.dt = 1.0 / update_rate
-        
-        # Initialize noise states if noise is enabled
-        if self.noise_config.enable_noise:
-            self._init_noise_states()
-    
-    def _init_noise_states(self):
-        """Initialize noise-related internal states"""
-        # Set random seed for reproducibility
-        torch.manual_seed(self.noise_config.seed)
-        np.random.seed(self.noise_config.seed)
-        
-        # Initialize bias states (these will evolve over time)
-        self._accel_bias = torch.zeros(3, device=ezsim.device, dtype=ezsim.tc_float)
-        self._gyro_bias = torch.zeros(3, device=ezsim.device, dtype=ezsim.tc_float)
-        
-        # Previous values for bias random walk
-        self._prev_accel_bias = torch.zeros_like(self._accel_bias)
-        self._prev_gyro_bias = torch.zeros_like(self._gyro_bias)
+    entity_idx: int
+    link_idx_local: int = 0
+    pos_offset: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    euler_offset: tuple[float, float, float] = (0.0, 0.0, 0.0)
 
-    def read(self, envs_idx: Optional[List[int]] = None) -> IMUData:
+    accelerometer_bias: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    gyroscope_bias: tuple[float, float, float] = (0.0, 0.0, 0.0)
+
+    def validate(self, scene):
+        assert self.entity_idx >= 0 and self.entity_idx < len(scene.entities), "Invalid RigidEntity index."
+        entity = scene.entities[self.entity_idx]
+        assert isinstance(entity, RigidEntity), "Entity at given index is not a RigidEntity."
+        assert (
+            self.link_idx_local >= 0 and self.link_idx_local < scene.entities[self.entity_idx].n_links
+        ), "Invalid RigidLink index."
+
+
+@dataclass
+class IMUSharedMetadata(SharedSensorMetadata):
+    """
+    Shared metadata between all IMU sensors.
+    """
+
+    solver: RigidSolver | None = None
+    links_idx: list[int] = field(default_factory=list)
+    offsets_pos: torch.Tensor = torch.tensor([])
+    offsets_quat: torch.Tensor = torch.tensor([])
+    acc_bias: torch.Tensor = torch.tensor([])
+    ang_bias: torch.Tensor = torch.tensor([])
+
+
+@register_sensor(IMUOptions, IMUSharedMetadata)
+@ti.data_oriented
+class IMU(Sensor):
+
+    def build(self):
         """
-        Read IMU sensor data.
-        
-        Parameters
-        ----------
-        envs_idx : Optional[List[int]]
-            Environment indices to read data for. If None, reads for all environments.
-            
-        Returns
-        -------
-        IMUData
-            IMU sensor measurements in body frame.
+        Initialize all shared metadata needed to update all IMU sensors.
         """
-        # Check if we need to update the cache
-        if self._cls._last_imu_update_step == self._sim.cur_step_global and self._cls._cached_data is not None:
-            cached_data = self._cls._cached_data
-            if envs_idx is not None:
-                # Return subset of cached data
-                return IMUData(
-                    lin_acc_body=cached_data.lin_acc_body[envs_idx],
-                    ang_vel_body=cached_data.ang_vel_body[envs_idx],
-                    ang_acc_body=cached_data.ang_acc_body[envs_idx],
-                    lin_vel_body=cached_data.lin_vel_body[envs_idx],
-                    timestamp=cached_data.timestamp
-                )
-            return cached_data
+        if self._shared_metadata.solver is None:
+            self._shared_metadata.solver = self._manager._sim.rigid_solver
 
-        # Update cache
-        self._cls._last_imu_update_step = self._sim.cur_step_global
-        
-        # Get raw sensor data
-        links_idx = [self.link_idx]
-        
-        # Linear acceleration in body frame (with gravity compensation) 
-        lin_acc_body = self._sim.rigid_solver.get_links_acc(links_idx=links_idx, mimick_imu=True)
-        
-        # Use new optimized functions for body frame data if available
-        try:
-            # Angular velocity in body frame (direct)
-            ang_vel_body = self._sim.rigid_solver.get_links_ang_body(links_idx=links_idx)
-            
-            # Angular acceleration in body frame (direct)
-            ang_acc_body = self._sim.rigid_solver.get_links_acc_ang_body(links_idx=links_idx)
-            
-            # Linear velocity in body frame (direct)
-            lin_vel_body = self._sim.rigid_solver.get_links_vel_body(links_idx=links_idx, ref="link_origin")
-            
-        except AttributeError:
-            # Fallback to world frame + manual transformation if new functions not available
-            ang_vel_world = self._sim.rigid_solver.get_links_ang(links_idx=links_idx)
-            link_quat = self._sim.rigid_solver.get_links_quat(links_idx=links_idx)
-            ang_vel_body = inv_transform_by_quat(ang_vel_world, link_quat)
-            
-            # Angular acceleration in world frame, then convert to body frame
-            ang_acc_world = self._sim.rigid_solver.get_links_acc_ang(links_idx=links_idx)
-            ang_acc_body = inv_transform_by_quat(ang_acc_world, link_quat)
-            
-            # Linear velocity in world frame, then convert to body frame
-            lin_vel_world = self._sim.rigid_solver.get_links_vel(links_idx=links_idx, ref="link_origin")
-            lin_vel_body = inv_transform_by_quat(lin_vel_world, link_quat)
-        
-        # Apply noise if enabled
-        if self.noise_config.enable_noise:
-            lin_acc_body = self._add_accelerometer_noise(lin_acc_body)
-            ang_vel_body = self._add_gyroscope_noise(ang_vel_body)
-            # Note: We don't typically add noise to angular acceleration and linear velocity
-            # as they are derived quantities, but could be added if needed
-        
-        # Create IMU data structure
-        imu_data = IMUData(
-            lin_acc_body=lin_acc_body.squeeze(0) if lin_acc_body.shape[0] == 1 else lin_acc_body,
-            ang_vel_body=ang_vel_body.squeeze(0) if ang_vel_body.shape[0] == 1 else ang_vel_body,
-            ang_acc_body=ang_acc_body.squeeze(0) if ang_acc_body.shape[0] == 1 else ang_acc_body,
-            lin_vel_body=lin_vel_body.squeeze(0) if lin_vel_body.shape[0] == 1 else lin_vel_body,
-            timestamp=self._sim.cur_step_global * self._sim._substep_dt
+        self._shared_metadata.links_idx.append(self._options.entity_idx + self._options.link_idx_local)
+        self._shared_metadata.offsets_pos = torch.cat(
+            [self._shared_metadata.offsets_pos, torch.tensor([self._options.pos_offset], dtype=ezsim.tc_float)]
         )
-        
-        # Cache the data
-        self._cls._cached_data = imu_data
-        
-        # Return subset if requested
-        if envs_idx is not None:
-            return IMUData(
-                lin_acc_body=imu_data.lin_acc_body[envs_idx],
-                ang_vel_body=imu_data.ang_vel_body[envs_idx],
-                ang_acc_body=imu_data.ang_acc_body[envs_idx],
-                lin_vel_body=imu_data.lin_vel_body[envs_idx],
-                timestamp=imu_data.timestamp
-            )
-        
-        return imu_data
-    
-    def _add_accelerometer_noise(self, clean_data: torch.Tensor) -> torch.Tensor:
-        """Add realistic accelerometer noise to clean data"""
-        noisy_data = clean_data.clone()
-        
-        # White noise
-        white_noise = torch.randn_like(clean_data) * self.noise_config.accel_noise_density / np.sqrt(self.dt)
-        
-        # Bias instability (random walk)
-        bias_drift = torch.randn_like(clean_data) * self.noise_config.accel_random_walk * np.sqrt(self.dt)
-        self._accel_bias += bias_drift
-        
-        # Apply noise
-        noisy_data += white_noise + self._accel_bias
-        
-        return noisy_data
-    
-    def _add_gyroscope_noise(self, clean_data: torch.Tensor) -> torch.Tensor:
-        """Add realistic gyroscope noise to clean data"""
-        noisy_data = clean_data.clone()
-        
-        # White noise  
-        white_noise = torch.randn_like(clean_data) * self.noise_config.gyro_noise_density / np.sqrt(self.dt)
-        
-        # Bias instability (random walk)
-        bias_drift = torch.randn_like(clean_data) * self.noise_config.gyro_random_walk * np.sqrt(self.dt)
-        self._gyro_bias += bias_drift
-        
-        # Apply noise
-        noisy_data += white_noise + self._gyro_bias
-        
-        return noisy_data
-    
-    def get_linear_acceleration(self, envs_idx: Optional[List[int]] = None) -> torch.Tensor:
-        """Get only linear acceleration measurement"""
-        return self.read(envs_idx).lin_acc_body
-    
-    def get_angular_velocity(self, envs_idx: Optional[List[int]] = None) -> torch.Tensor:
-        """Get only angular velocity measurement"""
-        return self.read(envs_idx).ang_vel_body
-    
-    def get_angular_acceleration(self, envs_idx: Optional[List[int]] = None) -> torch.Tensor:
-        """Get only angular acceleration measurement"""
-        return self.read(envs_idx).ang_acc_body
-    
-    def get_linear_velocity(self, envs_idx: Optional[List[int]] = None) -> torch.Tensor:
-        """Get only linear velocity measurement"""
-        return self.read(envs_idx).lin_vel_body
-    
-    def reset_noise_states(self):
-        """Reset noise-related states (useful for episode resets)"""
-        if self.noise_config.enable_noise:
-            self._accel_bias.zero_()
-            self._gyro_bias.zero_()
-            self._prev_accel_bias.zero_()
-            self._prev_gyro_bias.zero_()
-    
-    def get_data(self, envs_idx: Optional[List[int]] = None) -> IMUData:
+
+        quat_tensor = torch.tensor(euler_to_quat(self._options.euler_offset), dtype=ezsim.tc_float).unsqueeze(0)
+        if self._shared_metadata.solver.n_envs > 0:
+            quat_tensor = quat_tensor.unsqueeze(0).expand((self._manager._sim._B, 1, 4))
+        self._shared_metadata.offsets_quat = torch.cat([self._shared_metadata.offsets_quat, quat_tensor], dim=-2)
+
+        self._shared_metadata.acc_bias = torch.cat(
+            [self._shared_metadata.acc_bias, torch.tensor([self._options.accelerometer_bias], dtype=ezsim.tc_float)]
+        )
+        self._shared_metadata.ang_bias = torch.cat(
+            [self._shared_metadata.ang_bias, torch.tensor([self._options.gyroscope_bias], dtype=ezsim.tc_float)]
+        )
+
+    def _get_return_format(self) -> dict[str, tuple[int, ...]]:
+        return {
+            "lin_acc": (3,),
+            "ang_vel": (3,),
+        }
+
+    def _get_cache_length(self) -> int:
+        return 1
+
+    @classmethod
+    def _update_shared_ground_truth_cache(
+        cls, shared_metadata: IMUSharedMetadata, shared_ground_truth_cache: torch.Tensor
+    ):
         """
-        Alias for read() method for backward compatibility.
-        
-        Returns
-        -------
-        IMUData
-            Complete IMU sensor data structure.
+        Update the current ground truth values for all IMU sensors.
         """
-        return self.read(envs_idx)
+        gravity = shared_metadata.solver.get_gravity()
+        quats = shared_metadata.solver.get_links_quat(links_idx=shared_metadata.links_idx)
+        acc = shared_metadata.solver.get_links_acc(links_idx=shared_metadata.links_idx)
+        ang = shared_metadata.solver.get_links_ang(links_idx=shared_metadata.links_idx)
 
+        offset_quats = transform_quat_by_quat(quats, shared_metadata.offsets_quat)
 
+        # acc/ang shape: (B, n_imus, 3)
+        local_acc = inv_transform_by_trans_quat(acc, shared_metadata.offsets_pos, offset_quats)
+        local_ang = inv_transform_by_trans_quat(ang, shared_metadata.offsets_pos, offset_quats)
 
+        *batch_size, n_imus, _ = local_acc.shape
+        local_acc = local_acc - gravity.unsqueeze(-2).expand((*batch_size, n_imus, -1))
+
+        # cache shape: (B, n_imus * 6)
+        strided_ground_truth_cache = shared_ground_truth_cache.reshape((*batch_size, n_imus, 2, 3))
+        strided_ground_truth_cache[..., 0, :].copy_(local_acc)
+        strided_ground_truth_cache[..., 1, :].copy_(local_ang)
+
+    @classmethod
+    def _update_shared_cache(
+        cls,
+        shared_metadata: dict[str, Any],
+        shared_ground_truth_cache: torch.Tensor,
+        shared_cache: torch.Tensor,
+        buffered_data: "TensorRingBuffer",
+    ):
+        """
+        Update the current measured sensor data for all IMU sensors.
+
+        Note
+        ----
+        `buffered_data` contains the history of ground truth cache, and noise/bias is only applied to the current
+        sensor readout `shared_cache`, not the whole buffer.
+        """
+        buffered_data.append(shared_ground_truth_cache)
+        cls._apply_delay_to_shared_cache(shared_metadata, shared_cache, buffered_data)
+
+        # add bias to the shared_cache
+        *batch_size, n_imus, _ = shared_metadata.offsets_quat.shape
+        strided_shared_cache = shared_cache.reshape((*batch_size, n_imus, 2, 3))
+        strided_shared_cache[..., 0, :] += shared_metadata.acc_bias
+        strided_shared_cache[..., 1, :] += shared_metadata.ang_bias
+
+    @classmethod
+    def _get_cache_dtype(cls) -> torch.dtype:
+        return ezsim.tc_float

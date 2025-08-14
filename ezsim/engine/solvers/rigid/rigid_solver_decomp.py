@@ -2069,18 +2069,16 @@ class RigidSolver(Solver):
         tensor = ti_field_to_torch(self.links_state.cd_ang, envs_idx, links_idx, transpose=True, unsafe=unsafe)
         return tensor.squeeze(0) if self.n_envs == 0 else tensor
 
-    def get_links_acc(self, links_idx=None, envs_idx=None, *, mimick_imu=False, unsafe=False):
+    def get_links_acc(self, links_idx=None, envs_idx=None, *, unsafe=False):
         _tensor, links_idx, envs_idx = self._sanitize_2D_io_variables(
             None, links_idx, self.n_links, 3, envs_idx, idx_name="links_idx", unsafe=unsafe
         )
         tensor = _tensor.unsqueeze(0) if self.n_envs == 0 else _tensor
         kernel_get_links_acc(
-            mimick_imu,
             tensor,
             links_idx,
             envs_idx,
             self.links_state,
-            self._rigid_global_info,
             self._static_rigid_sim_config,
         )
         return _tensor
@@ -6635,12 +6633,10 @@ def kernel_get_links_vel(
 
 @ti.kernel
 def kernel_get_links_acc(
-    mimick_imu: ti.i32,
     tensor: ti.types.ndarray(),
     links_idx: ti.types.ndarray(),
     envs_idx: ti.types.ndarray(),
     links_state: array_class.LinksState,
-    rigid_global_info: array_class.RigidGlobalInfo,
     static_rigid_sim_config: ti.template(),
 ):
     ti.loop_config(serialize=static_rigid_sim_config.para_level < ezsim.PARA_LEVEL.PARTIAL)
@@ -6678,13 +6674,13 @@ def kernel_get_links_acc(
         # （2）
         acc_classic_lin = acc_lin + ang.cross(ang.cross(cpos))          # 𝐚_C + 𝛚̇ × 𝐫_{P/C} + 𝛚 × (𝛚 × 𝐫_{P/C})
 
-        # Mimick IMU accelerometer signal if requested
-        if mimick_imu:
-            # Subtract gravity
-            acc_classic_lin -= rigid_global_info.gravity[i_b]
+        # # Mimick IMU accelerometer signal if requested
+        # if mimick_imu:
+        #     # Subtract gravity
+        #     acc_classic_lin -= rigid_global_info.gravity[i_b]
 
-            # Move the resulting linear acceleration in local links frame
-            acc_classic_lin = gu.ti_inv_transform_by_quat(acc_classic_lin, links_state.quat[i_l, i_b])
+        #     # Move the resulting linear acceleration in local links frame
+        #     acc_classic_lin = gu.ti_inv_transform_by_quat(acc_classic_lin, links_state.quat[i_l, i_b])
 
         for i in ti.static(range(3)):
             tensor[i_b_, i_l_, i] = acc_classic_lin[i]

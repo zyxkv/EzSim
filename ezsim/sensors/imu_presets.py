@@ -6,7 +6,7 @@ This module provides pre-configured IMU settings that match real-world sensors.
 These configurations can be used directly or as starting points for custom configurations.
 """
 
-from ezsim.sensors.imu import IMUNoiseConfig
+from ezsim.sensors.deprecated_imu import IMUNoiseConfig
 
 
 class IMUPresets:

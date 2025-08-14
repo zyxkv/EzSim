@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 
 import ezsim
-from ezsim.sensors.imu import IMUSensor, IMUNoiseConfig
+from ezsim.sensors.deprecated_imu import IMUSensor, IMUNoiseConfig
 from ezsim import Scene
 
 

@@ -2,7 +2,7 @@ import os
 import pickle
 import sys
 import time
-
+from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
@@ -28,7 +28,6 @@ from ezsim.options import (
     PBDOptions,
     ProfilingOptions,
     RigidOptions,
-    SensorOptions,
     SFOptions,
     SimOptions,
     SPHOptions,
@@ -45,6 +44,8 @@ from ezsim.utils.misc import redirect_libc_stderr, tensor_to_array
 from ezsim.vis import Visualizer
 from ezsim.utils.warnings import warn_once
 
+if TYPE_CHECKING:
+    from ezsim.sensors.base_sensor import SensorOptions
 
 @ezsim.assert_initialized
 class Scene(RBC):
@@ -536,7 +537,7 @@ class Scene(RBC):
 
 
     @ezsim.assert_unbuilt
-    def add_sensor(self, sensor_options: SensorOptions):
+    def add_sensor(self, sensor_options: "SensorOptions"):
         return self._sim._sensor_manager.create_sensor(sensor_options)
     
     @ezsim.assert_unbuilt
