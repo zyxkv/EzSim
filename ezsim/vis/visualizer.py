@@ -94,6 +94,7 @@ class Visualizer(RBC):
         self._rasterizer = Rasterizer(self._viewer, self._context)
 
         if isinstance(renderer_options, ezsim.renderers.BatchRenderer):
+            #FIXME: debug object cannot show in batchrenderer now.
             from .batch_renderer import BatchRenderer
             self._renderer = self._batch_renderer = BatchRenderer(self, renderer_options)
         
@@ -137,17 +138,19 @@ class Visualizer(RBC):
         self.viewer_lock = None
         self._renderer = None
 
-    def add_camera(self, res, pos, lookat, up, model, fov, aperture, focus_dist, GUI, spp, denoise, env_idx):
-        cam_idx = len(self._cameras)
+    def add_camera(self, res, pos, lookat, up, model, fov, aperture, focus_dist, GUI, spp, denoise, env_idx, debug):
+        cam_idx = len([camera for camera in self._cameras if camera.debug == debug])
         camera = Camera(
-           self, cam_idx, model, res, pos, lookat, up, fov, aperture, focus_dist, GUI, spp, denoise, env_idx=env_idx
+           self, cam_idx, model, res, pos, lookat, up, fov, aperture, focus_dist, GUI, spp, denoise, env_idx=env_idx, debug=debug
         )
         self._cameras.append(camera)
         return camera
 
-    def add_light(self, pos, dir, intensity, directional, castshadow, cutoff):
+    def add_light(self, pos, dir, color, directional, castshadow, cutoff, attenuation, intensity):
         if self._batch_renderer is not None:
-            self._batch_renderer.add_light(pos, dir, intensity, directional, castshadow, cutoff)
+            self._batch_renderer.add_light(pos, dir, color, directional, castshadow, cutoff, attenuation, intensity)
+        else:
+            ezsim.raise_exception("`add_light` is specifically for batch renderer.")
 
     def reset(self):
         self._t = -1
@@ -170,7 +173,6 @@ class Visualizer(RBC):
             if self._batch_renderer is None:
                 for camera in self._cameras:
                     self._rasterizer.render_camera(camera)
-
 
     def build(self):
         self._context.build(self._scene)

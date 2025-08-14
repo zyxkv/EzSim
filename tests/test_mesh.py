@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 import numpy as np
 import pytest
@@ -293,6 +294,34 @@ def test_usd_parse(usd_filename):
             ezsim_glb_material.emissive_texture, ezsim_usd_material.emissive_texture, 0.0, material_name, "emissive"
         )
 
+@pytest.mark.skipif(
+    sys.version_info[:2] != (3, 10) or sys.platform not in ("linux", "win32"),
+    reason="omniverse-kit used by USD Baking cannot be correctly installed on this platform now.",
+)
+@pytest.mark.parametrize(
+    "usd_file", ["usd/WoodenCrate/WoodenCrate_D1_1002.usda", "usd/franka_mocap_teleop/table_scene.usd"]
+)
+def test_usd_bake(usd_file, show_viewer):
+    asset_path = get_hf_assets(pattern=os.path.join(os.path.dirname(usd_file), "*"), local_dir_use_symlinks=False)
+    usd_file = os.path.join(asset_path, usd_file)
+    gs_usd_meshes = usda_utils.parse_mesh_usd(
+        usd_file, group_by_material=True, scale=1.0, surface=ezsim.surfaces.Default(), bake_cache=False
+    )
+    for gs_usd_mesh in gs_usd_meshes:
+        require_bake = gs_usd_mesh.metadata["require_bake"]
+        bake_success = gs_usd_mesh.metadata["bake_success"]
+        assert not require_bake or (require_bake and bake_success)
+
+    scene = ezsim.Scene(
+        show_viewer=show_viewer,
+        show_FPS=False,
+    )
+    robot = scene.add_entity(
+        ezsim.morphs.Mesh(
+            file=usd_file,
+        ),
+    )
+    scene.build()
 
 @pytest.mark.required
 def test_urdf_with_existing_glb(tmp_path, show_viewer):
@@ -312,6 +341,11 @@ def test_urdf_with_existing_glb(tmp_path, show_viewer):
     scene = ezsim.Scene(
         show_viewer=show_viewer,
         show_FPS=False,
+    )
+    robot = scene.add_entity(
+        ezsim.morphs.URDF(
+            file=urdf_path,
+        ),
     )
     scene.build()
     scene.step()
@@ -360,5 +394,10 @@ def test_urdf_with_float_texture_glb(tmp_path, show_viewer, n_channels, float_ty
          """
     )
     scene = ezsim.Scene(show_viewer=show_viewer, show_FPS=False)
+    robot = scene.add_entity(
+        ezsim.morphs.URDF(
+            file=urdf_path,
+        ),
+    )
     scene.build()
     scene.step()

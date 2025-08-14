@@ -8,7 +8,7 @@ import ezsim
 from ezsim.repr_base import RBC
 
 try:
-    from gs_madrona.renderer_gs import MadronaBatchRendererAdapter
+    from ez_madrona.renderer_gs import MadronaBatchRendererAdapter
 except ImportError as e:
     ezsim.raise_exception_from("Madrona batch renderer is only supported on Linux x86-64.", e)
 
@@ -21,13 +21,15 @@ class IMAGE_TYPE(enum.IntEnum):
 
 
 class Light:
-    def __init__(self, pos, dir, intensity, directional, castshadow, cutoff):
+    def __init__(self, pos, dir, color, directional, castshadow, cutoff, attenuation, intensity):
         self._pos = pos
         self._dir = dir
-        self._intensity = intensity
+        self._color = color or np.array([1.0, 1.0, 1.0], dtype=np.float32) #default is white light
         self._directional = directional
         self._castshadow = castshadow
         self._cutoff = cutoff
+        self._attenuation = attenuation or 0.0
+        self._intensity = intensity
 
     @property
     def pos(self):
@@ -38,8 +40,8 @@ class Light:
         return self._dir
 
     @property
-    def intensity(self):
-        return self._intensity
+    def color(self):
+        return self._color
 
     @property
     def directional(self):
@@ -57,6 +59,13 @@ class Light:
     def cutoffDeg(self):
         return self._cutoff
 
+    @property
+    def attenuation(self):
+        return self._attenuation
+
+    @property
+    def intensity(self):
+        return self._intensity
 
 class BatchRenderer(RBC):
     """
@@ -72,8 +81,8 @@ class BatchRenderer(RBC):
         self._data_cache = {}
         self._t = -1
 
-    def add_light(self, pos, dir, intensity, directional, castshadow, cutoff):
-        self._lights.append(Light(pos, dir, intensity, directional, castshadow, cutoff))
+    def add_light(self, pos, dir, color, directional, castshadow, cutoff, attenuation, intensity):
+        self._lights.append(Light(pos, dir, color, directional, castshadow, cutoff, attenuation, intensity))
 
     def build(self):
         """
@@ -85,30 +94,34 @@ class BatchRenderer(RBC):
         if ezsim.backend != ezsim.cuda:
             ezsim.raise_exception("BatchRenderer requires CUDA backend.")
 
-        cameras = self._visualizer._cameras
-        lights = self._lights
+        # cameras = self._visualizer._cameras
+        self._cameras = ezsim.List([camera for camera in self._visualizer._cameras if not camera.debug])
+        # lights = self._lights
+        # self._lights = ezsim.List(self._lights)
         rigid = self._visualizer.scene.rigid_solver
         n_envs = max(self._visualizer.scene.n_envs, 1)
-        res = cameras[0].res
+        res = self._cameras[0].res
         gpu_id = ezsim.device.index
         use_rasterizer = self._renderer_options.use_rasterizer
 
         # Cameras
-        n_cameras = len(cameras)
-        cameras_pos = torch.stack([camera.get_pos() for camera in cameras], dim=1)
-        cameras_quat = torch.stack([camera.get_quat() for camera in cameras], dim=1)
-        cameras_fov = torch.tensor([camera.fov for camera in cameras], dtype=ezsim.tc_float, device=ezsim.device)
-        cameras_znear = torch.tensor([camera.near for camera in cameras], dtype=ezsim.tc_float, device=ezsim.device)
-        cameras_zfar = torch.tensor([camera.far for camera in cameras], dtype=ezsim.tc_float, device=ezsim.device)
+        n_cameras = len(self._cameras)
+        cameras_pos = torch.stack([camera.get_pos() for camera in self._cameras], dim=1)
+        cameras_quat = torch.stack([camera.get_quat() for camera in self._cameras], dim=1)
+        cameras_fov = torch.tensor([camera.fov for camera in self._cameras], dtype=ezsim.tc_float, device=ezsim.device)
+        cameras_znear = torch.tensor([camera.near for camera in self._cameras], dtype=ezsim.tc_float, device=ezsim.device)
+        cameras_zfar = torch.tensor([camera.far for camera in self._cameras], dtype=ezsim.tc_float, device=ezsim.device)
         # Build taichi arrays to store light properties once. If later we need to support dynamic lights, we should
         # consider storing light properties as taichi fields in Genesis.
-        n_lights = len(lights)
+        n_lights = len(self._lights)
         light_pos = torch.tensor([light.pos for light in self._lights], dtype=ezsim.tc_float)
         light_dir = torch.tensor([light.dir for light in self._lights], dtype=ezsim.tc_float)
-        light_intensity = torch.tensor([light.intensity for light in self._lights], dtype=ezsim.tc_float)
+        light_color = torch.tensor([light.color for light in self._lights], dtype=ezsim.tc_float)
         light_directional = torch.tensor([light.directional for light in self._lights], dtype=ezsim.tc_int)
         light_castshadow = torch.tensor([light.castshadow for light in self._lights], dtype=ezsim.tc_int)
         light_cutoff = torch.tensor([light.cutoffRad for light in self._lights], dtype=ezsim.tc_float)
+        lights_attenuation = torch.tensor([light.attenuation for light in self._lights], dtype=ezsim.tc_float)
+        light_intensity = torch.tensor([light.intensity for light in self._lights], dtype=ezsim.tc_float)
 
         self._renderer = MadronaBatchRendererAdapter(
             rigid, gpu_id, n_envs, n_cameras, n_lights, cameras_fov, 
@@ -120,10 +133,12 @@ class BatchRenderer(RBC):
             cameras_quat,
             light_pos,
             light_dir,
-            light_intensity,
+            light_color,
             light_directional,
             light_castshadow,
             light_cutoff,
+            lights_attenuation,
+            light_intensity,
         )
 
     def update_scene(self):
@@ -227,3 +242,7 @@ class BatchRenderer(RBC):
     @property
     def lights(self):
         return self._lights
+
+    @property
+    def cameras(self):
+        return self._cameras

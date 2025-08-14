@@ -17,11 +17,20 @@ def _export_frame_rgb_camera(i_env, export_dir, i_cam, i_step, rgb):
 
 def _export_frame_depth_camera(i_env, export_dir, i_cam, i_step, depth):
     depth = tensor_to_array(depth[i_env])
+    # 确保深度图像是正确的uint8格式，避免OpenCV编码器警告
+    if depth.dtype != np.uint8:
+        depth = depth.astype(np.uint8)
     cv2.imwrite(f"{export_dir}/depth_cam{i_cam}_env{i_env}_{i_step:03d}.png", depth)
 
 def _export_frame_normal_camera(i_env, export_dir, i_cam, i_step, normal):
     normal = np.flip(tensor_to_array(normal[i_env,...,:3]), axis=-1)
-    cv2.imwrite(f"{export_dir}/normal_cam{i_cam}_env{i_env}_{i_step:03d}.png", normal)
+    
+    # Normal图像已经在[0,255]范围内，直接转换为uint8以避免OpenCV警告
+    if normal.dtype == np.float32:
+        normal = normal.astype(np.uint8)
+    
+    filename = f"{export_dir}/normal_cam{i_cam}_env{i_env}_{i_step:03d}.png"
+    cv2.imwrite(filename, normal)
 
 def index_to_rgb_color(index):
     """

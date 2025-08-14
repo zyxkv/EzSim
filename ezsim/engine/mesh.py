@@ -13,7 +13,7 @@ import ezsim
 from ezsim.options.surfaces import Surface
 import ezsim.utils.mesh as mu
 import ezsim.utils.gltf as gltf_utils
-import ezsim.utils.usda as usda_utils
+# import ezsim.utils.usda as usda_utils
 import ezsim.utils.particle as pu
 # from ezsim.ext import fast_simplification
 from ezsim.repr_base import RBC
@@ -65,9 +65,9 @@ class Mesh(RBC):
 
         if self._surface.requires_uv():  # check uvs here
             if self._uvs is None:
-                if "mesh_path" in metadata:
+                if "mesh_path" in self._metadata:
                     ezsim.logger.warning(
-                        f"Texture given but asset missing uv info (or failed to load): {metadata['mesh_path']}"
+                        f"Texture given but asset missing uv info (or failed to load): {self._metadata['mesh_path']}"
                     )
                 else:
                     ezsim.logger.warning("Texture given but asset missing uv info (or failed to load).")
@@ -231,6 +231,7 @@ class Mesh(RBC):
         """
         if surface is None:
             surface = ezsim.surfaces.Default()
+            surface.update_texture()
         else:
             surface = surface.copy()
         mesh = mesh.copy(include_cache=True)
@@ -343,16 +344,20 @@ class Mesh(RBC):
         If the morph is a Mesh morph (morphs.Mesh), it could contain multiple submeshes, so we return a list.
         """
         if isinstance(morph, ezsim.options.morphs.Mesh):
-            if morph.file.endswith(("obj", "ply", "stl")):
+            # if morph.file.endswith(("obj", "ply", "stl")):
+            if morph.is_format(ezsim.options.morphs.MESH_FORMATS):
                 meshes = mu.parse_mesh_trimesh(morph.file, morph.group_by_material, morph.scale, surface)
 
-            elif morph.file.endswith(("glb", "gltf")):
+            # elif morph.file.endswith(("glb", "gltf")):
+            elif morph.is_format(ezsim.options.morphs.GLTF_FORMATS):
                 if morph.parse_glb_with_trimesh:
                     meshes = mu.parse_mesh_trimesh(morph.file, morph.group_by_material, morph.scale, surface)
                 else:
                     meshes = gltf_utils.parse_mesh_glb(morph.file, morph.group_by_material, morph.scale, surface)
 
-            elif morph.file.endswith(("usd", "usda", "usdc", "usdz")):
+            # elif morph.file.endswith(("usd", "usda", "usdc", "usdz")):
+            elif morph.is_format(ezsim.options.morphs.USD_FORMATS):
+                import ezsim.utils.usda as usda_utils
                 meshes = usda_utils.parse_mesh_usd(morph.file, morph.group_by_material, morph.scale, surface)
 
             elif isinstance(morph, ezsim.options.morphs.MeshSet):

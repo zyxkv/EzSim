@@ -6,31 +6,87 @@ scene_extent:
   y: 10.0    # 房间宽度 (米)
   z: 8.0    # 房间高度 (米)
 
-# 无人机基本参数
-drone_size: 0.3    # 无人机特征尺寸 (米)，用于自适应生成障碍物
+# 光照配置
+lighting:
+  ceil:
+    color: [1.0,1.0,1.0]
+    grid_x: 15
+    grid_y: 6
+    margin_x: 5.0
+    margin_y: 2.0
+    height: 7.8
+    directional: 0
+    cutoff_deg: 45
+    attenuation: 0.1
+    intensity: 0.05
+  wall:
+    color: [1.0,1.0,1.0]
+    grid_x: 
+    margin_x: 0.5
+    margin_y: 0.5
+    height: 6.0
+    directional: 0
+    cutoff_deg: 90
+    attenuation: 0.001
+    intensity: 0.08
+  ambient:
+    color: [1.0,1.0,1.0]
+    num: 4
+    height: 7.8
+    directional: 0
+    cutoff_deg: 90
+    attenuation: 0.1
+    intensity: 0.125
 
-# 任务难度: 'easy', 'medium', 'hard'
-difficulty: 'medium'
+# 无人机基本参数
+robot_size: [0.3, 0.3, 0.3]    # 无人机特征尺寸 (米)，用于自适应生成障碍物
 
 # 门配置 - 无人机需要穿越的通道
 gates:
-  gate_1:
-    type: 'square'      # 方形门
-    pos: [-8, 0, 1.0]      # 位置 [x, y, z]
-    size: [2, 2]        # 尺寸 [宽度, 高度]
-    direction: 'x'      # 门的方向: 'x' 或 'y'
-    clearance: 5.0      # 门前后需要保持的净空距离
+  square:
+    gs1:
+      type: 'gate_square'      # 方形门
+      pos: [-8, 0, 1.5]      # 位置 [x, y, z]
+      size: [1.3, 1.3, 0.05]        # 尺寸 [宽度, 高度]
+      direction: 'x'      # 门的方向: 'x' 或 'y'
+      path_ratio: 3.0      # 门前后需要保持的净空距离
 
-  gate_2:
-    type: 'circle'      # 圆形门
-    pos: [-14, 3, 1.3]     # 位置 [x, y, z]
-    size: [0.7,0.6]          # 尺寸 [半径]
-    direction: 'x'      # 门的方向: 'x' 或 'y'
-    clearance: 5.0      # 门前后需要保持的净空距离
+    gs2:
+      type: 'gate_square'
+      pos: [-10, -2, 1.7]
+      size: [1.3, 1.3, 0.05]
+      direction: 'x'
+      path_ratio: 3.0
 
-  gate_3:
-    type: 'square'
-    pos: [-10, -2, 1.3]
-    size: [2, 1]
-    direction: 'x'
-    clearance: 5.0
+  circle:
+    gc1:
+        type: 'gate_circle'      # 圆形门
+        pos: [-10, 3, 1.7]     # 位置 [x, y, z]
+        size: [0.7, 0.7, 0.05]          # 尺寸 [半径]
+        direction: 'x'      # 门的方向: 'x' 或 'y'
+        path_ratio: 3.0      # 门前后需要保持的净空距离
+    
+
+# 障碍物配置
+obstacles:
+  difficulty: 'medium'  # 难度级别: 'easy', 'medium', 'hard'
+  types: ['sphere','box','cylinder']
+  count: 50
+  density: 0.2
+  path_ratio: 2.0
+  size_variation: [0.5,0.5,0.125]
+
+# 相机配置
+camera:
+  debug:
+    pos: [-20.0,0.0,5.0]
+    lookat: [0.0,0.0,3.0]
+    res: [1280, 960]
+    fov: 80
+    gui: false
+  drone_sim:
+    pos: [-10.3,-2.0,1.6]
+    lookat: [0.0,0.0,1.6]
+    res: [640, 480]
+    fov: 150
+    gui: false

@@ -1,633 +1,750 @@
 import torch 
 import math 
 import numpy as np
+from numpy.typing import NDArray
 import argparse
 import yaml
 import random
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Union, Any
 
 import ezsim
-# from ezsim.sensors import SensorDataRecorder, VideoFileWriter
+from ezsim.sensors import SensorDataRecorder, VideoFileWriter
 from ezsim.utils.image_exporter import FrameImageExporter
 
-def build_floor(scene: ezsim.Scene, floor_x: float, floor_y: float):
-    """构建地板"""
-    scene.add_entity(
-        morph=ezsim.morphs.Box(
-            size=(floor_x, floor_y, 0.1),
-            pos=(0, 0, 0.05),
-            fixed=True  # 设置为固定，不参与物理仿真
-        ),
-        surface=ezsim.surfaces.Rough(
-            color=(0.6, 0.6, 0.6, 1.0)
-        )
-        # surface=ezsim.surfaces.Rough(
-        #     diffuse_texture=ezsim.textures.ImageTexture(
-        #         image_path="textures/indoor_concrete_floor_02.png"
-        #     )
-        # )
-    )
-    return floor_x, floor_y
+from typing import Literal
+from pydantic import BaseModel, Field
 
-def build_roof(scene: ezsim.Scene, floor_x: float, floor_y: float, roof_h: float):
-    """构建屋顶"""
-    scene.add_entity(
-        morph=ezsim.morphs.Box(
-            size=(floor_x, floor_y, 0.1),
-            pos=(0, 0, roof_h-0.05),
-            fixed=True  # 设置为固定，不参与物理仿真
-        ),
-        # surface=ezsim.surfaces.Rough(
-        #     diffuse_texture=ezsim.textures.ImageTexture(
-        #         image_path="textures/indoor_plastered_wall_04.png"
-        #     )
-        # )
-        surface=ezsim.surfaces.Rough(
-            color=(0.7, 0.7, 0.7, 1.0)
-        ),
+
+#######################
+# Global Scene
+#######################
+global SCENE 
+SCENE = None
+global SCENE_STATUS 
+SCENE_STATUS = -1
+
+###############################################
+# BackEnd/Scene init (only run once)
+###############################################
+def init_scene(args: argparse.Namespace) -> Tuple[int,Optional[ezsim.Scene]]:
+    global SCENE, SCENE_STATUS
+    if SCENE_STATUS < 0:
+        ##########################################
+        # backend init
+        ##########################################
+        ezsim.init(
+            seed=4320,
+            backend=ezsim.cpu if args.cpu else ezsim.gpu,
+            precision="32",
+            eps=1e-12,
+            log_time=False
+        )
+
+        ##########################################
+        # scene init
+        ##########################################
+        SCENE = ezsim.Scene(
+            sim_options=ezsim.options.SimOptions(dt=args.dt),
+            rigid_options=ezsim.options.RigidOptions(
+                box_box_detection=False,
+                max_collision_pairs=1000,
+                use_gjk_collision=True,
+                enable_mujoco_compatibility=False,
+            ),
+            renderer=ezsim.options.renderers.BatchRenderer(
+                use_rasterizer=args.use_rasterizer,
+            ),
+            vis_options=ezsim.options.VisOptions(show_world_frame=True),
+            show_viewer=False,
+        )
+        SCENE_STATUS = 0
+        return SCENE_STATUS, SCENE # Scene initialized
+    return SCENE_STATUS, SCENE  # Scene already exists
+
+
+#######################
+# Room
+#######################
+class Room(BaseModel):
+    """室内房间配置"""
+    extent: Tuple[float, float, float] = Field(default=(40.0, 10.0, 8.0), description='房间尺寸 (长, 宽, 高)')
+    textures: Dict[str, Union[str,Tuple[float,float,float]]] = Field(default_factory=lambda: {
+        'floor': "textures/carpet_grayblue_01.png",
+        'roof': "textures/stucco_wall_blue.png",
+        'left': (0.2, 0.2, 0.9), 
+        'right': (0.9, 0.2, 0.2),
+        'front': (0.2, 0.9, 0.2),
+        'back': (0.9, 0.2, 0.9)
+    }, description='地板/屋顶/墙面纹理或颜色配置，支持RGB颜色元组或纹理路径')
+
+#######################
+# Lights
+#######################
+class Lights(BaseModel):
+    """室内照明配置"""
+    ceil: Dict[str,Any] = Field(default_factory=lambda: {
+        'color':[1.0,1.0,1.0], 'grid':[15,6], 'margin': [5.0, 2.0],'height': 7.8, 
+        'directional':0, 'cutoff_deg': 45, 'attenuation': 0.1,'intensity': 0.05,
+    })
+    wall: Dict[str, Any] = Field(default_factory=lambda: {
+        'color':[1.0,1.0,1.0], 'margin':[0.5,0.5], 'height': 6.0, 
+        'directional':0, 'cutoff_deg': 90, 'attenuation': 0.001,'intensity': 0.08,
+    })
+    ambient: Dict[str, Any] = Field(default_factory=lambda: {
+        'color':[1.0,1.0,1.0], 'num': 4, 'height': 7.8, 
+        'directional':0, 'cutoff_deg': 90, 'attenuation': 0.1,'intensity': 0.125,
+    })
+
+#######################
+# Gates
+#######################
+class SquareGate(BaseModel):
+    """方形门配置[obj out_size 1.3x1.3 inner_frame 1.0x1.0 thickness 0.05]"""
+    pos: Tuple[float, float, float] = Field(default=(0, 0, 1.5), description='门的位置 (x, y, z)')
+    size: Tuple[float, float, float] = Field(default=(1.3, 1.3, 0.05), description='门的尺寸 (宽, 高, 深)')
+    direction: Literal['x','y','z'] = Field(default='x', description='门的方向')
+    euler: Tuple[float, float, float] = Field(default=(0, 0, 0), description='门的欧拉角 (roll, pitch, yaw)')
+    path_ratio: float = Field(default=2.0, description='门周围预留可通过路径倍数')
+    texture: Union[str, Tuple[float,float,float]] = Field(default="textures/sjtu_square_gate.png", description='门的纹理')
+    aabb:Any = Field(default=np.zeros((2, 3)), description='门的轴对齐包围盒')
+    
+    def post_euler(self, robot_size: Tuple[float,float,float] = (0.3,0.3,0.3)):
+        """根据机器人尺寸和门的方向计算欧拉角和包围盒"""
+        exh = 0.5*self.size[0] + self.path_ratio*robot_size[0]
+        eyh = 0.5*self.size[1] + self.path_ratio*robot_size[1] 
+        ezh = 0.5*self.size[2] + self.path_ratio*robot_size[2]
         
-    )
-    return roof_h
-
-def build_walls(scene: ezsim.Scene, floor_x: float, floor_y: float, roof_h: float):
-    """构建四面墙"""
-    wall_thickness = 0.2
-    
-    # 前墙
-    scene.add_entity(
-        morph=ezsim.morphs.Box(
-            size=(floor_x, wall_thickness, roof_h),
-            pos=(0, floor_y/2 - wall_thickness/2, roof_h/2),
-            fixed=True  # 设置为固定，不参与物理仿真
-        ),
-        surface=ezsim.surfaces.Rough(
-            color=(0.8, 0.6, 0.4, 1.0)
-        )
-        # surface=ezsim.surfaces.Rough(
-        #     diffuse_texture=ezsim.textures.ImageTexture(
-        #         image_path="textures/indoor_brick_wall_001.png"
-        #     )
-        # )
-    )
-    
-    # 后墙
-    scene.add_entity(
-        morph=ezsim.morphs.Box(
-            size=(floor_x, wall_thickness, roof_h),
-            pos=(0, -floor_y/2 + wall_thickness/2, roof_h/2),
-            fixed=True  # 设置为固定，不参与物理仿真
-        ),
-        surface=ezsim.surfaces.Rough(
-            color=(0.8, 0.6, 0.4, 1.0)
-        )
-        # surface=ezsim.surfaces.Rough(
-        #     diffuse_texture=ezsim.textures.ImageTexture(
-        #         image_path="textures/indoor_brick_wall_001.png"
-        #     )
-        # )
-    )
-    
-    # 左墙
-    scene.add_entity(
-        morph=ezsim.morphs.Box(
-            size=(wall_thickness, floor_y, roof_h),
-            pos=(-floor_x/2 + wall_thickness/2, 0, roof_h/2),
-            fixed=True  # 设置为固定，不参与物理仿真
-        ),
-        surface=ezsim.surfaces.Rough(
-            color=(0.8, 0.6, 0.4, 1.0)
-        )
-        # surface=ezsim.surfaces.Rough(
-        #     diffuse_texture=ezsim.textures.ImageTexture(
-        #         image_path="textures/indoor_brick_wall_003.png"
-        #     )
-        # )
-    )
-    
-    # 右墙
-    scene.add_entity(
-        morph=ezsim.morphs.Box(
-            size=(wall_thickness, floor_y, roof_h),
-            pos=(floor_x/2 - wall_thickness/2, 0, roof_h/2),
-            fixed=True  # 设置为固定，不参与物理仿真
-        ),
-        surface=ezsim.surfaces.Rough(
-            color=(0.8, 0.6, 0.4, 1.0)
-        )
-        # surface=ezsim.surfaces.Rough(
-        #     diffuse_texture=ezsim.textures.ImageTexture(
-        #         image_path="textures/indoor_brick_wall_003.png"
-        #     )
-        # )
-    )
-
-def build_light(scene: ezsim.Scene, floor_x: float, floor_y: float, roof_h: float, grid_x: int, grid_y: int):
-    """构建室内顶棚照明灯矩阵和墙面补充照明
-    
-    Args:
-        scene: EzSim场景对象
-        floor_x: 房间长度
-        floor_y: 房间宽度  
-        roof_h: 房间高度
-        grid_x: X方向灯的数量
-        grid_y: Y方向灯的数量
-    """
-    # 灯的高度：距离顶棚0.5m
-    light_height = roof_h - 0.5
-    
-    # 设置边界距离限制
-    x_margin = 5.0  # X方向距离前后边界至少5m
-    y_margin = 2.0  # Y方向距离左右边界至少2m
-    
-    # 计算实际可用的照明区域
-    available_x = floor_x - 2 * x_margin
-    available_y = floor_y - 2 * y_margin
-    
-    # 确保有足够的空间放置灯
-    if available_x <= 0 or available_y <= 0:
-        print(f"Warning: Room too small for lighting with margins. Room: {floor_x}x{floor_y}, Required: {2*x_margin}x{2*y_margin}")
-        return
-    
-    # 计算灯之间的间距和起始位置
-    if grid_x > 1:
-        x_spacing = available_x / (grid_x - 1)
-        x_start = -available_x / 2
-    else:
-        x_spacing = 0
-        x_start = 0
-    
-    if grid_y > 1:
-        y_spacing = available_y / (grid_y - 1)
-        y_start = -available_y / 2
-    else:
-        y_spacing = 0
-        y_start = 0
-    
-    # 天花板灯的基本参数
-    light_intensity = 0.1  # 稍微降低主要光源强度
-    light_cutoff = 45.0     # 光照范围角度
-    
-    # 创建天花板灯矩阵
-    for i in range(grid_x):
-        for j in range(grid_y):
-            # 计算灯的位置
-            if grid_x > 1:
-                x_pos = x_start + i * x_spacing
-            else:
-                x_pos = 0
-                
-            if grid_y > 1:
-                y_pos = y_start + j * y_spacing
-            else:
-                y_pos = 0
-            
-            # 添加点光源
-            scene.add_light(
-                pos=[x_pos, y_pos, light_height],
-                dir=[0.0, 0.0, -1.0],  # 向下照射
-                directional=0,         # 点光源
-                castshadow=0,          # 产生阴影
-                cutoff=light_cutoff,   # 光照范围
-                intensity=light_intensity,
-            )
-            
-            # 可选：添加视觉化的灯具实体（小球体表示灯泡）
-            scene.add_entity(
-                morph=ezsim.morphs.Sphere(
-                    radius=0.15,  # 小球体表示灯泡
-                    pos=[x_pos, y_pos, light_height + 0.1],
-                    fixed=True  # 固定不动
-                ),
-                surface=ezsim.surfaces.Emission(
-                    color=(1.0, 1.0, 0.8, 0.0)  # 淡黄色发光材质
-                )
-            )
-    
-    # 添加墙面补充照明以消除光影图案
-    wall_light_intensity = 0.1  # 较低的补充光强度
-    wall_light_height = roof_h * 0.6  # 墙面灯高度约为房间高度的60%
-    wall_offset = 0.5  # 距离墙面的偏移距离
-    
-    # 前墙补充照明（沿Y正方向）
-    wall_light_count = max(3, grid_x // 2)  # 墙面灯数量
-    for i in range(wall_light_count):
-        x_pos = -floor_x/2 + (i + 1) * floor_x / (wall_light_count + 1)
-        scene.add_light(
-            pos=[x_pos, floor_y/2 - wall_offset, wall_light_height],
-            dir=[0.0, -1.0, 0.0],  # 向房间内照射
-            directional=0,
-            castshadow=0,  # 不产生阴影，避免额外图案
-            cutoff=90.0,   # 较大的照射角度
-            intensity=wall_light_intensity,
-        )
-    
-    # 后墙补充照明（沿Y负方向）
-    for i in range(wall_light_count):
-        x_pos = -floor_x/2 + (i + 1) * floor_x / (wall_light_count + 1)
-        scene.add_light(
-            pos=[x_pos, -floor_y/2 + wall_offset, wall_light_height],
-            dir=[0.0, 1.0, 0.0],  # 向房间内照射
-            directional=0,
-            castshadow=0,  # 不产生阴影
-            cutoff=90.0,
-            intensity=wall_light_intensity,
-        )
-    
-    # 左墙补充照明（沿X负方向）  
-    wall_light_count_y = max(3, grid_y // 2)
-    for i in range(wall_light_count_y):
-        y_pos = -floor_y/2 + (i + 1) * floor_y / (wall_light_count_y + 1)
-        scene.add_light(
-            pos=[-floor_x/2 + wall_offset, y_pos, wall_light_height],
-            dir=[1.0, 0.0, 0.0],  # 向房间内照射
-            directional=0,
-            castshadow=0,  # 不产生阴影
-            cutoff=90.0,
-            intensity=wall_light_intensity,
-        )
-    
-    # 右墙补充照明（沿X正方向）
-    for i in range(wall_light_count_y):
-        y_pos = -floor_y/2 + (i + 1) * floor_y / (wall_light_count_y + 1)
-        scene.add_light(
-            pos=[floor_x/2 - wall_offset, y_pos, wall_light_height],
-            dir=[-1.0, 0.0, 0.0],  # 向房间内照射
-            directional=0,
-            castshadow=0,  # 不产生阴影
-            cutoff=90.0,
-            intensity=wall_light_intensity,
-        )
-    
-    # 添加一些环境光以进一步平滑光照
-    ambient_light_count = 4
-    ambient_intensity = 0.05
-    for i in range(ambient_light_count):
-        angle = i * 2 * np.pi / ambient_light_count
-        radius = min(floor_x, floor_y) * 0.3
-        x_pos = radius * np.cos(angle)
-        y_pos = radius * np.sin(angle)
-        
-        scene.add_light(
-            pos=[x_pos, y_pos, roof_h * 0.8],
-            dir=[0.0, 0.0, -1.0],
-            directional=0,
-            castshadow=0,  # 环境光不产生阴影
-            cutoff=90.0,   # 大范围照射
-            intensity=ambient_intensity,
-        )
-    
-    total_wall_lights = 2 * wall_light_count + 2 * wall_light_count_y
-    total_ceiling_lights = grid_x * grid_y
-    
-    print(f"Added {total_ceiling_lights} ceiling lights at height {light_height}m")
-    print(f"Added {total_wall_lights} wall lights at height {wall_light_height}m for uniform illumination")
-    print(f"Added {ambient_light_count} ambient lights to smooth lighting patterns") 
-
-def build_gate(scene: ezsim.Scene, gate_config: dict, roof_h: float) -> List[Dict]:
-    """构建门（使用OBJ文件加载）并返回门的占用空间信息"""
-    occupied_spaces = []
-    
-    for gate_name, gate_info in gate_config.items():
-        gate_type = gate_info['type']
-        pos = gate_info['pos']
-        size = gate_info['size']
-        
-        # 根据方向设置旋转角度
-        if gate_info['direction'] == 'x':
-            euler = (0.0, 90.0, 0.0)
-        elif gate_info['direction'] == 'y':
-            euler = (0.0, 90.0, 90.0)
+        if self.direction == 'x':
+            self.euler = (90.0, 0.0, -90.0)
+            self.aabb = np.array([
+                [self.pos[0]-ezh, self.pos[1]-eyh, self.pos[2]-exh],
+                [self.pos[0]+ezh, self.pos[1]+eyh, self.pos[2]+exh]
+            ])
+        elif self.direction == 'y':
+            self.euler = (90.0, 0.0, 0.0)
+            self.aabb = np.array([
+                [self.pos[0]-exh, self.pos[1]-ezh, self.pos[2]-eyh],
+                [self.pos[0]+exh, self.pos[1]+ezh, self.pos[2]+eyh]
+            ])
+        elif self.direction == 'z':
+            self.euler = (0.0, 0.0, 0.0)
+            self.aabb = np.array([
+                [self.pos[0]-exh, self.pos[1]-eyh, self.pos[2]-ezh],
+                [self.pos[0]+exh, self.pos[1]+eyh, self.pos[2]+ezh]
+            ])
         else:
-            raise ValueError(f"Invalid gate direction: {gate_info['direction']}")
-        
-        if gate_type == 'square':
-            # 方形门：配置中size = [宽度, 高度]
-            target_width = size[0] if len(size) > 0 else 1.3
-            target_height = size[1] if len(size) > 1 else 1.0
-            target_depth = size[2] if len(size) > 2 else 0.05
+            ezsim.logger.warning(f"Unsupported door direction: {self.direction}, euler will keep {self.euler}")
+    
+    @property
+    def scale(self)->Tuple[float, float, float]:
+        """
+        返回仿真器morph.Mesh中的缩放因子
+        """
+        return self.size[0] / 1.3, self.size[1] / 1.3, self.size[2] / 0.05
+    
+class CircleGate(BaseModel):
+    """圆形门配置[obj out_radius 0.7 inner_radius 0.5 thickness 0.1]"""
+    pos: Tuple[float, float, float] = Field(default=(0, 0, 1.7), description='门的位置 (x, y, z)')
+    size: Tuple[float, float, float] = Field(default=(0.7, 0.7, 0.1), description='门的尺寸 (宽, 高, 深)')
+    direction: Literal['x','y','z'] = Field(default='x', description='门的方向')
+    euler: Tuple[float, float, float] = Field(default=(0, 0, 0), description='门的欧拉角 (roll, pitch, yaw)')
+    path_ratio: float = Field(default=2.0, description='门周围预留可通过路径倍数')
+    texture: Union[str, Tuple[float,float,float]] = Field(default=(0.925,0.015,0.0), description='门的纹理')
+    aabb:Any = Field(default=np.zeros((2, 3)), description='门的轴对齐包围盒')
 
-            # 我们生成的方形门OBJ原始尺寸：外框1.3x1.3x0.05
-            original_width = 1.3
-            original_height = 1.0  # 实际上我们的OBJ没有严格的高度概念，这里是厚度方向
-            original_depth = 0.05
+    def post_euler(self, robot_size: Tuple[float,float,float] = (0.3,0.3,0.3)):
+        """根据机器人尺寸和门的方向计算欧拉角和包围盒"""
+        exh = self.size[0] + self.path_ratio*robot_size[0]
+        eyh = self.size[1] + self.path_ratio*robot_size[1]
+        ezh = 0.5*self.size[2] + self.path_ratio*robot_size[2]
+        
+        if self.direction == 'x':
+            self.euler = (90.0, 0.0, -90.0)
+            self.aabb = np.array([
+                [self.pos[0]-ezh, self.pos[1]-eyh, self.pos[2]-exh],
+                [self.pos[0]+ezh, self.pos[1]+eyh, self.pos[2]+exh]
+            ])
+        elif self.direction == 'y':
+            self.euler = (90.0, 0.0, 0.0)
+            self.aabb = np.array([
+                [self.pos[0]-exh, self.pos[1]-ezh, self.pos[2]-eyh],
+                [self.pos[0]+exh, self.pos[1]+ezh, self.pos[2]+eyh]
+            ])
+        elif self.direction == 'z':
+            self.euler = (0.0, 0.0, 0.0)
+            self.aabb = np.array([
+                [self.pos[0]-exh, self.pos[1]-eyh, self.pos[2]-ezh],
+                [self.pos[0]+exh, self.pos[1]+eyh, self.pos[2]+ezh]
+            ])
+        else:
+            ezsim.logger.warning(f"Unsupported door direction: {self.direction}, euler will keep {self.euler}")
+
+    @property
+    def scale(self)->Tuple[float, float, float]:
+        """
+        返回仿真器morph.Mesh中的缩放因子
+        """
+        return self.size[0] / 0.7, self.size[1] / 0.7, self.size[2] / 0.1
+
+#######################
+# Cam
+#######################
+class Cam(BaseModel):
+    pos: Tuple[float, float, float] = Field(default=(-20, 0, 5), description='相机位置 (x, y, z)')
+    lookat: Tuple[float, float, float] = Field(default=(0, 0, 3), description='相机朝向目标点 (x, y, z)')
+    res: Tuple[int,int] = Field(default=(1280, 960), description='相机分辨率 (宽, 高)')
+    fov: float = Field(default=80, description='相机视场角 (度)')
+    # fps: int = Field(default=30, description='相机帧率') # 目前不支持
+    gui: bool = Field(default=False, description='是否启用GUI')
+
+
+#######################
+# Obstacles
+#######################
+"""
+室内障碍物配置
+真实情况：儿童EPP泡沫， 0.15x0.15x0.3, 连接处高0.035
+"""
+class Obstacles(BaseModel):
+    """室内障碍物配置"""
+    types: List[str] = Field(default_factory=lambda: ['sphere', 'box', 'cylinder', 
+                                                      'triangular_pyramid', 'square_pyramid', 
+                                                      'square_frustum', 'cone_frustum'])
+    count: int = Field(default=80, description='房间内的障碍物数量')                     
+    density: float = Field(default=0.2, description='障碍物/平方米')  # 
+    path_ratio: float = Field(default=2.0, description='障碍物之间预留可通过路径倍数') 
+    size_variation: Tuple[float,float,float] = Field(default=(0.5, 0.5, 0.125), description= '障碍物本身尺寸变化范围')
+
+
+#######################
+# Indoor Scene
+#######################
+class IndoorScene:
+    """室内场景配置"""
+    scene: Optional[ezsim.Scene] = None
+    cameras: Dict[str, Cam] = {}
+    
+    def __init__(self, **data):
+        # 先初始化为默认配置，避免属性未定义的问题
+        self.default_init()
+        # 设置scene为全局SCENE
+        global SCENE
+        self.scene = SCENE
+        # 如果有提供yaml_path，则从YAML文件加载配置
+        if 'yaml_path' in data:
+            self.load_yaml(yaml_path=data['yaml_path'])
+
+    def default_init(self):
+        """返回默认配置"""
+        self.room = Room()
+        self.lights = Lights()
+        self.robot_size: Tuple[float, float, float] = (0.3, 0.3, 0.3)
+        self.gates = dict(square={}, circle={})
+        self.obstacles = Obstacles()
+        self.cameras = dict()  # 相机配置字典
+        self.occupied_spaces: List[Dict] = []  # 用于记录已占用的空间
+        self._debug_occupied_spaces = False
+    
+    def load_yaml(self, yaml_path):
+        """从YAML文件加载配置"""
+        try:
+            with open(yaml_path, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
             
-            # 计算缩放因子
-            scale_x = target_width / original_width
-            scale_y = target_height / original_height  # Y轴也按宽度比例缩放保持比例
-            scale_z = target_depth / original_depth  # Z轴按高度缩放
+            # 加载场景尺寸配置
+            scene_extent_config = config.get('scene_extent', {})
+            self.room = Room(extent=(
+                scene_extent_config.get('x', 40.0),
+                scene_extent_config.get('y', 10.0), 
+                scene_extent_config.get('z', 8.0)
+            ))
             
-            # 加载方形门OBJ模型
-            try:
-                scene.add_entity(
-                    morph=ezsim.morphs.Mesh(
-                        file="meshes/drone_racing/square_gate.obj",  # 使用我们生成的OBJ文件
-                        pos=pos,
-                        euler=euler,
-                        scale=(scale_x, scale_y, scale_z),  # 应用缩放
-                        fixed=True
-                    ),
-                    surface=ezsim.surfaces.Gold(
-                        color=(1.0, 0.8, 0.2, 1.0)
-                    )
-                )
-                
-                # 记录门的占用空间信息（使用实际配置的尺寸）
-                gate_clearance = gate_info.get('clearance', 2.0)
-                occupied_spaces.append({
-                    'pos': pos,
-                    'size': (target_width + gate_clearance, target_width + gate_clearance, target_height),
-                    'type': 'gate',
-                    'name': gate_name
-                })
-                
-                print(f"Built square gate '{gate_name}' at {pos} with size {target_width}x{target_height}")
-                
-            except Exception as e:
-                print(f"Warning: Failed to load square gate model: {e}")
-                continue
-                
-        elif gate_type == 'circle':
-            # 圆形门：配置中size = [半径]
-            target_radius = size[0] if len(size) > 0 else 0.7
-            target_depth = size[1] if len(size) > 1 else 0.1
-
-            # 我们生成的圆形门OBJ原始尺寸：外半径0.7，内半径0.5，厚度0.1
-            original_radius = 0.7
-            original_depth = 0.1
+            # 加载光照配置
+            lighting_config = config.get('lighting', {})
+            ceil_config = lighting_config.get('ceil', {})
+            wall_config = lighting_config.get('wall', {})
+            ambient_config = lighting_config.get('ambient', {})
             
-            # 计算缩放因子
-            scale_factor = target_radius / original_radius
-            scale_depth = target_depth / original_depth
-
-            # 加载圆形门OBJ模型
-            try:
-                scene.add_entity(
-                    morph=ezsim.morphs.Mesh(
-                        file="meshes/drone_racing/circle_gate.obj",  # 使用我们生成的OBJ文件
-                        pos=pos,
-                        euler=euler,
-                        scale=(scale_factor, scale_factor, scale_depth),  # 统一缩放
-                        fixed=True
-                    ),
-                    surface=ezsim.surfaces.Rough(
-                        color=(0.8, 0.2, 0.2, 1.0)
-                    )
-                )
-                
-                # 记录门的占用空间信息（使用实际配置的尺寸）
-                gate_clearance = gate_info.get('clearance', 2.0)
-                occupied_spaces.append({
-                    'pos': pos,
-                    'size': (target_radius*2 + gate_clearance, target_radius*2 + gate_clearance, target_radius*2),
-                    'type': 'gate',
-                    'name': gate_name
-                })
-                
-                print(f"Built circle gate '{gate_name}' at {pos} with radius {target_radius}")
-                
-            except Exception as e:
-                print(f"Warning: Failed to load circle gate model: {e}")
-                continue
-    
-    return occupied_spaces
-
-def build_obstacles(scene: ezsim.Scene, obstacles_config: List[Dict]):
-    """构建各种类型的障碍物"""
-    # 为不同类型的障碍物定义颜色
-    obstacle_colors = {
-        'sphere': [(0.8, 0.4, 0.2, 1.0), (0.2, 0.8, 0.4, 1.0), (0.4, 0.2, 0.8, 1.0)],
-        'box': [(0.6, 0.6, 0.2, 1.0), (0.2, 0.6, 0.6, 1.0), (0.6, 0.2, 0.6, 1.0)],
-        'cylinder': [(0.8, 0.8, 0.2, 1.0), (0.2, 0.8, 0.8, 1.0), (0.8, 0.2, 0.8, 1.0)]
-    }
-    
-    for i, obstacle in enumerate(obstacles_config):
-        obstacle_type = obstacle['type']
-        pos = obstacle['pos']
-        size = obstacle['size']
-        
-        # 为每种类型选择颜色
-        color_list = obstacle_colors[obstacle_type]
-        color = color_list[i % len(color_list)]
-        
-        if obstacle_type == 'sphere':
-            radius = size[0] / 2
-            scene.add_entity(
-                morph=ezsim.morphs.Sphere(
-                    radius=radius,
-                    pos=pos,
-                    fixed=True  # 设置为固定，不参与物理仿真
-                ),
-                surface=ezsim.surfaces.Rough(
-                    color=color
-                )
-            )
-        elif obstacle_type == 'box':
-            scene.add_entity(
-                morph=ezsim.morphs.Box(
-                    size=size,
-                    pos=pos,
-                    fixed=True  # 设置为固定，不参与物理仿真
-                ),
-                surface=ezsim.surfaces.Rough(
-                    color=color
-                )
-            )
-        elif obstacle_type == 'cylinder':
-            radius = size[0] / 2
-            height = size[2]
-            scene.add_entity(
-                morph=ezsim.morphs.Cylinder(
-                    radius=radius,
-                    height=height,
-                    pos=pos,
-                    fixed=True  # 设置为固定，不参与物理仿真
-                ),
-                surface=ezsim.surfaces.Rough(
-                    color=color
-                )
-            )
-
-def generate_adaptive_obstacles(floor_x: float, floor_y: float, roof_h: float,
-                              drone_size: float, difficulty: str = 'medium',
-                              occupied_spaces: List[Dict] = None) -> List[Dict]:
-    """根据无人机尺寸和难度自适应生成障碍物分布，排除已占用的空间"""
-    obstacles = []
-    
-    if occupied_spaces is None:
-        occupied_spaces = []
-    
-    # 根据难度设置参数
-    if difficulty == 'easy':
-        obstacle_density = 0.3
-        min_clearance = drone_size * 3.0
-        size_variation = 0.5
-    elif difficulty == 'medium':
-        obstacle_density = 0.5
-        min_clearance = drone_size * 2.0
-        size_variation = 0.7
-    else:  # hard
-        obstacle_density = 0.7
-        min_clearance = drone_size * 1.5
-        size_variation = 0.9
-    
-    # 计算障碍物数量
-    area = floor_x * floor_y
-    num_obstacles = int(area * obstacle_density / 10)  # 每10平方米的障碍物密度
-    
-    # 生成障碍物
-    max_attempts = num_obstacles * 10
-    attempts = 0
-    
-    while len(obstacles) < num_obstacles and attempts < max_attempts:
-        attempts += 1
-        
-        # 随机选择障碍物类型
-        obstacle_type = random.choice(['sphere', 'box', 'cylinder'])
-        
-        # 随机位置（避开边界）
-        margin = 2.0
-        x = random.uniform(-floor_x/2 + margin, floor_x/2 - margin)
-        y = random.uniform(-floor_y/2 + margin, floor_y/2 - margin)
-        z = random.uniform(0.5, roof_h - 0.5)
-        
-        # 根据类型生成尺寸
-        if obstacle_type == 'sphere':
-            base_radius = drone_size * (0.5 + 0.5 * size_variation)
-            radius = random.uniform(base_radius * 0.8, base_radius * 1.2)
-            size = (2*radius, 2*radius, 2*radius)
-        elif obstacle_type == 'box':
-            base_size = drone_size * (0.8 + 0.7 * size_variation)
-            w = random.uniform(base_size * 0.5, base_size * 1.5)
-            h = random.uniform(base_size * 0.5, base_size * 1.5)
-            d = random.uniform(base_size * 0.5, base_size * 1.5)
-            size = (w, h, d)
-        else:  # cylinder
-            base_radius = drone_size * (0.3 + 0.4 * size_variation)
-            radius = random.uniform(base_radius * 0.8, base_radius * 1.2)
-            height = random.uniform(drone_size, roof_h * 0.8)
-            size = (2*radius, 2*radius, height)
-        
-        # 检查是否与现有障碍物或已占用空间太近
-        pos = (x, y, z)
-        valid_position = True
-        
-        # 检查与现有障碍物的距离
-        for existing in obstacles:
-            existing_pos = existing['pos']
-            existing_size = existing['size']
-            
-            distance = np.sqrt((x - existing_pos[0])**2 + 
-                             (y - existing_pos[1])**2 + 
-                             (z - existing_pos[2])**2)
-            min_required_distance = (max(size) + max(existing_size))/2 + min_clearance
-            
-            if distance < min_required_distance:
-                valid_position = False
-                break
-        
-        # 检查与已占用空间的距离（门等）
-        if valid_position:
-            for occupied in occupied_spaces:
-                occupied_pos = occupied['pos']
-                occupied_size = occupied['size']
-                
-                distance = np.sqrt((x - occupied_pos[0])**2 + 
-                                 (y - occupied_pos[1])**2 + 
-                                 (z - occupied_pos[2])**2)
-                
-                min_required_distance = (max(size) + max(occupied_size))/2 + min_clearance
-                
-                if distance < min_required_distance:
-                    valid_position = False
-                    break
-        
-        if valid_position:
-            obstacles.append({
-                'type': obstacle_type,
-                'pos': pos,
-                'size': size
-            })
-    
-    print(f"Generated {len(obstacles)} obstacles with difficulty '{difficulty}', avoiding {len(occupied_spaces)} occupied spaces")
-    return obstacles
-
-def build_all(scene: ezsim.Scene, scene_config: dict):
-    """构建完整场景，按顺序：基础结构→门→障碍物"""
-    # 获取场景尺寸
-    extent = scene_config['scene_extent']
-    floor_x, floor_y, roof_h = extent['x'], extent['y'], extent['z']
-    
-    # 1. 构建基础结构
-    build_floor(scene, floor_x, floor_y)
-    build_roof(scene, floor_x, floor_y, roof_h)
-    build_walls(scene, floor_x, floor_y, roof_h)
-    
-    # 2. 构建门系统并获取占用空间
-    gates_config = scene_config.get('gates', {})
-    occupied_spaces = []
-    
-    if gates_config:
-        occupied_spaces = build_gate(scene, gates_config, roof_h)
-        print(f"Built {len(occupied_spaces)} gates")
-    
-    # 3. 生成自适应障碍物（排除门的占用空间）
-    drone_size = scene_config.get('drone_size', 0.5)
-    difficulty = scene_config.get('difficulty', 'medium')
-    
-    obstacles_config = generate_adaptive_obstacles(
-        floor_x, floor_y, roof_h, drone_size, difficulty, occupied_spaces
-    )
-    
-    # 4. 构建障碍物
-    build_obstacles(scene, obstacles_config)
-    
-    # 5. 构建照明系统
-    lighting_config = scene_config.get('lighting', {'grid_x': 15, 'grid_y': 6})
-    grid_x = lighting_config.get('grid_x', 15)
-    grid_y = lighting_config.get('grid_y', 6)
-    build_light(scene, floor_x, floor_y, roof_h, grid_x, grid_y)
-    
-    return floor_x, floor_y, roof_h
-
-
-def load_all(yaml_file: str) -> dict:
-    """从YAML文件加载配置"""
-    try:
-        with open(yaml_file, 'r', encoding='utf-8') as f:
-            config = yaml.safe_load(f)
-        return config
-    except FileNotFoundError:
-        # 返回默认配置
-        return {
-            'scene_extent': {'x': 20, 'y': 15, 'z': 8},
-            'drone_size': 0.5,
-            'difficulty': 'medium',
-            'lighting': {
-                'grid_x': 4,  # X方向灯的数量
-                'grid_y': 3   # Y方向灯的数量
-            },
-            'gates': {
-                'gate_1': {
-                    'type': 'square',
-                    'pos': [5, 0, 3],
-                    'size': [3, 3],
-                    'direction': 'y',
-                    'clearance': 2.5
+            self.lights = Lights(
+                ceil={
+                    'color': ceil_config.get('color', [1.0, 1.0, 1.0]),
+                    'grid': [ceil_config.get('grid_x', 15), ceil_config.get('grid_y', 6)],
+                    'margin': [ceil_config.get('margin_x', 5.0), ceil_config.get('margin_y', 2.0)],
+                    'height': ceil_config.get('height', 7.8),
+                    'directional': ceil_config.get('directional', 0),
+                    'cutoff_deg': ceil_config.get('cutoff_deg', 45),
+                    'attenuation': ceil_config.get('attenuation', 0.1),
+                    'intensity': ceil_config.get('intensity', 0.05),
                 },
-                'gate_2': {
-                    'type': 'circle',
-                    'pos': [-5, 3, 4],
-                    'size': [2],
-                    'direction': 'x',
-                    'clearance': 2.0
+                wall={
+                    'color': wall_config.get('color', [1.0, 1.0, 1.0]),
+                    'margin': [wall_config.get('margin_x', 0.5), wall_config.get('margin_y', 0.5)],
+                    'height': wall_config.get('height', 6.0),
+                    'directional': wall_config.get('directional', 0),
+                    'cutoff_deg': wall_config.get('cutoff_deg', 90),
+                    'attenuation': wall_config.get('attenuation', 0.001),
+                    'intensity': wall_config.get('intensity', 0.08),
+                },
+                ambient={
+                    'color': ambient_config.get('color', [1.0, 1.0, 1.0]),
+                    'num': ambient_config.get('num', 4),
+                    'height': ambient_config.get('height', 7.8),
+                    'directional': ambient_config.get('directional', 0),
+                    'cutoff_deg': ambient_config.get('cutoff_deg', 90),
+                    'attenuation': ambient_config.get('attenuation', 0.1),
+                    'intensity': ambient_config.get('intensity', 0.125),
                 }
+            )
+            
+            # 加载门配置
+            gates_config = config.get('gates', {})
+            self.gates = {
+                'square': gates_config.get('square', {}),
+                'circle': gates_config.get('circle', {})
             }
-        } 
+            
+            # 加载机器人尺寸配置
+            robot_size_config = config.get('robot_size', [0.3, 0.3, 0.3])
+            self.robot_size = tuple(robot_size_config)
+            
+            # 加载障碍物配置
+            obstacles_config = config.get('obstacles', {})
+            self.obstacles = Obstacles(
+                types=obstacles_config.get('types', ['sphere', 'box', 'cylinder']),
+                count=obstacles_config.get('count', 50),
+                density=obstacles_config.get('density', 0.2),
+                path_ratio=obstacles_config.get('path_ratio', 2.0),
+                size_variation=tuple(obstacles_config.get('size_variation', [0.5, 0.5, 0.125]))
+            )
+            
+            # 加载相机配置
+            camera_config = config.get('camera', {})
+            self.cameras = {}
+            for cam_name, cam_cfg in camera_config.items():
+                self.cameras[cam_name] = Cam(
+                    pos=tuple(cam_cfg.get('pos', [-20, 0, 5])),
+                    lookat=tuple(cam_cfg.get('lookat', [0, 0, 3])),
+                    res=tuple(cam_cfg.get('res', [1280, 960])),
+                    fov=cam_cfg.get('fov', 80),
+                    gui=cam_cfg.get('gui', False)
+                )
+            
+            print(f"Successfully loaded configuration from {yaml_path}")
+            
+        except FileNotFoundError:
+            print(f"Warning: YAML file {yaml_path} not found. Using default configuration.")
+            return self.default_init()   
+
+    def build(self, n_envs:int=1):
+        self.scene.build(n_envs=n_envs)
+        self.exporter = FrameImageExporter('img_output/indoor_dojo')
+        
+
+    def run(self, steps:int=3, w_rgb:bool=True, w_depth:bool=True, w_normal:bool=False, w_seg:bool=False):
+        ##########################################
+        # render loop
+        ##########################################
+        if self._debug_occupied_spaces:
+            self.recorder.start_recording()
+        try:
+            for i in range(steps):
+                # 在场景构建后添加调试可视化
+                if self._debug_occupied_spaces:
+                    self._debug_objects = self.draw_debug_occupied_spaces()
+                self.scene.step()
+                rgba, depth, normal_color, seg_color = self.scene.render_all_cameras(w_rgb, w_depth, w_normal, w_seg)
+                self.exporter.export_frame_all_cameras(i, rgb=rgba, depth=depth,normal=normal_color, segmentation=seg_color)
+                self.recorder.step()
+                self.scene.clear_debug_objects()  # 清除调试对象以避免内存泄漏
+        except KeyboardInterrupt:
+            ezsim.logger.info("Simulation interrupted, exiting.")
+        finally:
+            ezsim.logger.info("Simulation finished.")
+            if self._debug_occupied_spaces:
+                self.recorder.stop_recording()
+            
+    # TODO: 需要实现build_obstacles
+    def construct(self, debug_occupied_spaces: bool = False):
+        # 存储调试标志，在build()中使用
+        self._debug_occupied_spaces = debug_occupied_spaces
+
+        # pipeline: room -> lights -> gates -> cameras -> obstacles
+        self._build_room()._build_lights()._build_gates()
+        if self._debug_occupied_spaces:
+            self.recorder = SensorDataRecorder(step_dt=1e-2)
+        self._build_cameras()
+        if self._debug_occupied_spaces:
+            self.recorder.add_sensor(self.camera_objects[0], VideoFileWriter(filename="video_res/indoor_dojo_debug.mp4"))
+
+        return self
+        
+    def add_debug_cam(self):
+        """添加默认的调试相机（向后兼容的方法）"""
+        debug_cam = self.scene.add_camera(
+            res=(1280,960),
+            pos=(-self.room.extent[0]//2,0,self.room.extent[2]//2),
+            lookat=(0,0,self.room.extent[2]//2),
+            fov=100,
+            GUI=False
+        )
+        return debug_cam
+
+    def _build_cameras(self):
+        """根据配置构建相机系统"""
+        if self.scene is None:
+            raise ValueError("Scene not initialized. Call init_scene(args) first.")
+        
+        self.camera_objects = []
+        for cam_name, cam_config in self.cameras.items():
+            camera = self.scene.add_camera(
+                res=cam_config.res,
+                pos=cam_config.pos,
+                lookat=cam_config.lookat,
+                fov=cam_config.fov,
+                GUI=cam_config.gui
+            )
+            self.camera_objects.append(camera)
+            ezsim.logger.info(f"Added camera '{cam_name}' at {cam_config.pos} looking at {cam_config.lookat}")
+        
+        # 如果没有配置任何相机，添加默认的调试相机
+        if not self.cameras:
+            ezsim.logger.info("No cameras configured, adding default debug camera")
+            default_cam = self.add_debug_cam()
+            self.camera_objects.append(default_cam)
+        
+        global SCENE_STATUS
+        SCENE_STATUS = 4
+        return self
+
+    def draw_debug_occupied_spaces(self):
+        """绘制occupied_spaces的外包围盒用于调试"""
+        if self.scene is None:
+            raise ValueError("Scene not initialized. Call init_scene(args) first.")
+        
+        debug_objects = []
+        for i, space in enumerate(self.occupied_spaces):
+            if 'aabb' in space:
+                aabb = space['aabb']
+                space_name = space.get('name', f'space_{i}')
+                space_type = space.get('type', 'unknown')
+                
+                # 根据空间类型设置不同的颜色
+                if 'gate_square' in space_type:
+                    color = (0.0, 1.0, 0.0, 0.8)  # 绿色 - 方形门
+                elif 'gate_circle' in space_type:
+                    color = (0.0, 0.0, 1.0, 0.8)  # 蓝色 - 圆形门
+                elif 'obstacle' in space_type:
+                    color = (1.0, 0.5, 0.0, 0.8)  # 橙色 - 障碍物
+                else:
+                    color = (1.0, 0.0, 1.0, 0.8)  # 紫色 - 未知类型
+                
+                # 绘制wireframe包围盒
+                debug_obj = self.scene.draw_debug_box(
+                    bounds=aabb,
+                    color=color,
+                    wireframe=True,
+                    wireframe_radius=0.005
+                )
+                debug_objects.append(debug_obj)
+                
+                ezsim.logger.info(f"Drew debug box for '{space_name}' ({space_type})")
+                ezsim.logger.info(f"  AABB bounds: {aabb}")
+        
+        ezsim.logger.info(f"Total debug boxes drawn: {len(debug_objects)}")
+        return debug_objects
+
+    def clear_debug_objects(self):
+        """清除所有调试对象"""
+        if hasattr(self, '_debug_objects') and self._debug_objects:
+            for debug_obj in self._debug_objects:
+                try:
+                    self.scene.clear_debug_object(debug_obj)
+                except Exception as e:
+                    ezsim.logger.warning(f"Failed to clear debug object: {e}")
+            self._debug_objects = []
+            ezsim.logger.info("Cleared all debug objects")
+
+    # FINISH: 已完成/基本无需检查 _build_room
+    def _build_room(self):
+        """根据配置构建室内房间"""
+        if self.scene is None:
+            raise ValueError("Scene not initialized. Call scene.init() first.")
+        ex, ey, roof_h = self.room.extent
+        roof_thickness = 0.2
+        wall_thickness = 0.2
+        # 地板
+        self.scene.add_entity(
+            morph=ezsim.morphs.Plane(fixed=True, contype=0x0001, conaffinity=0x0001),
+            surface=ezsim.surfaces.Rough(diffuse_texture=ezsim.textures.ImageTexture(image_path=self.room.textures['floor'])) 
+                if isinstance(self.room.textures['floor'], str) else ezsim.surfaces.Rough(color=self.room.textures['floor']) 
+        )      
+        # 屋顶
+        self.scene.add_entity(
+            morph=ezsim.morphs.Mesh(file="meshes/drone_racing/box.obj", pos=(0, 0, roof_h + roof_thickness/8), scale=(ex + 2*wall_thickness, ey + 2*wall_thickness, roof_thickness), fixed=True, contype=0x0002, conaffinity=0x0002),
+            surface=ezsim.surfaces.Rough(diffuse_texture=ezsim.textures.ImageTexture(image_path=self.room.textures['roof'])) 
+                if isinstance(self.room.textures['roof'], str) else ezsim.surfaces.Rough(color=self.room.textures['roof']) 
+        )
+        # 墙壁
+        # 左墙
+        self.scene.add_entity(
+            morph=ezsim.morphs.Plane(pos=(0, ey / 2, roof_h / 2), normal=(0, -1, 0), fixed=True, contype=0x0004, conaffinity=0x0004),
+            surface=ezsim.surfaces.Rough(diffuse_texture=ezsim.textures.ImageTexture(image_path=self.room.textures['left'])) 
+                if isinstance(self.room.textures['left'], str) else ezsim.surfaces.Rough(color=self.room.textures['left'])
+        )
+        # 右墙
+        self.scene.add_entity(
+            morph=ezsim.morphs.Plane(pos=(0, -ey / 2, roof_h / 2), normal=(0, 1, 0), fixed=True, contype=0x0004, conaffinity=0x0004),
+            surface=ezsim.surfaces.Rough(diffuse_texture=ezsim.textures.ImageTexture(image_path=self.room.textures['right'])) 
+                if isinstance(self.room.textures['right'], str) else ezsim.surfaces.Rough(color=self.room.textures['right']) 
+        )
+        # 前墙
+        self.scene.add_entity(
+            morph=ezsim.morphs.Plane(pos=(ex / 2, 0, roof_h / 2), normal=(-1, 0, 0), fixed=True, contype=0x0008, conaffinity=0x0008),
+            surface=ezsim.surfaces.Rough(diffuse_texture=ezsim.textures.ImageTexture(image_path=self.room.textures['front'])) 
+                if isinstance(self.room.textures['front'], str) else ezsim.surfaces.Rough(color=self.room.textures['front']) 
+        )
+        # 后墙
+        self.scene.add_entity(
+            morph=ezsim.morphs.Plane(pos=(-ex / 2, 0, roof_h / 2), normal=(1, 0, 0), fixed=True, contype=0x0008, conaffinity=0x0008),
+            surface=ezsim.surfaces.Rough(diffuse_texture=ezsim.textures.ImageTexture(image_path=self.room.textures['back'])) 
+                if isinstance(self.room.textures['back'], str) else ezsim.surfaces.Rough(color=self.room.textures['back']) 
+        )
+        SCENE_STATUS = 1
+        return self
+    
+    # FINISH: 已完成/基本无需检查 _build_lights
+    def _build_lights(self):
+        """根据配置构建室内照明系统，包括天花板灯矩阵、墙面补充照明和环境光"""
+        if self.scene is None:
+            raise ValueError("Scene not initialized. Call scene.init() first.")
+        ex, ey, roof_h = self.room.extent
+        mex, mey = self.lights.ceil['margin']
+        avax, avay = ex-2*mex, ey-2*mey
+        if avax <= 0 or avay <= 0:
+            raise ezsim.logger.warning(f"Warning: Room too small for lighting with margins. Room: {ex}x{ey}, Required: {2*mex}x{2*mey}")
+        # 计算天花板灯之间的间距和起始位置
+        grid_x, grid_y = self.lights.ceil['grid']
+        ceil_lpos_x = [-avax/2 + (i* avax/(grid_x - 1)) for i in range(grid_x)] if grid_x > 1 else [0]
+        ceil_lpos_y = [-avay/2 + (j* avay/(grid_y - 1)) for j in range(grid_y)] if grid_y > 1 else [0]
+
+        for clpx in ceil_lpos_x:
+            for clpy in ceil_lpos_y:
+                pos = (clpx, clpy, self.lights.ceil['height'])
+                self.scene.add_light(
+                    pos=pos,
+                    dir=[0.0, 0.0, -1.0],
+                    directional=self.lights.ceil['directional'],
+                    castshadow=1,
+                    cutoff=self.lights.ceil['cutoff_deg'],
+                    intensity=self.lights.ceil['intensity'],
+                    attenuation=self.lights.ceil['attenuation']
+                )
+        # 墙面补充照明 - 在天花板灯的间隔处添加补充光源以消除光影图案
+        mwx,mwy = self.lights.wall['margin']
+        wlh = self.lights.wall['height']
+        wall_lpos_x = [(ceil_lpos_x[i + 1] + ceil_lpos_x[i]) / 2 for i in range(len(ceil_lpos_x) - 1)]
+        for wlpx in wall_lpos_x:
+            # 左墙补充照明
+            self.scene.add_light(
+                pos=[wlpx, ey/2 - mwy , wlh],
+                dir=[0.0,-1.0,0.0],
+                directional=self.lights.wall['directional'],
+                castshadow=0,
+                cutoff=self.lights.wall['cutoff_deg'],
+                intensity=self.lights.wall['intensity'],
+                attenuation=self.lights.wall['attenuation']
+            )
+            # 右墙补充照明
+            self.scene.add_light(
+                pos=[wlpx, -ey/2 + mwy , wlh],
+                dir=[0.0, 1.0, 0.0],
+                directional=self.lights.wall['directional'],
+                castshadow=0,
+                cutoff=self.lights.wall['cutoff_deg'],
+                intensity=self.lights.wall['intensity'],
+                attenuation=self.lights.wall['attenuation']
+            )
+        wall_lpos_y = [(ceil_lpos_y[i + 1] + ceil_lpos_y[i]) / 2 for i in range(len(ceil_lpos_y) - 1)]
+        for wlpy in wall_lpos_y:
+            # 前墙补充照明
+            self.scene.add_light(
+                pos=[ex/2 - mwx, wlpy, wlh],
+                dir=[-1.0, 0.0, 0.0],
+                directional=self.lights.wall['directional'],
+                castshadow=0,
+                cutoff=self.lights.wall['cutoff_deg'],
+                intensity=self.lights.wall['intensity'],
+                attenuation=self.lights.wall['attenuation']
+            )
+            # 后墙补充照明
+            self.scene.add_light(
+                pos=[-ex/2 + mwx, wlpy, wlh],
+                dir=[1.0, 0.0, 0.0],
+                directional=self.lights.wall['directional'],
+                castshadow=0,
+                cutoff=self.lights.wall['cutoff_deg'],
+                intensity=self.lights.wall['intensity'],
+                attenuation=self.lights.wall['attenuation']
+            )
+        # 添加环境光以进一步平滑光照
+        amlight_num = self.lights.ambient['num']
+        for i in range(amlight_num):
+            angle = i * 2 * np.pi / amlight_num
+            radius = min(ex, ey) * 0.3
+            x_pos = radius * np.cos(angle)
+            y_pos = radius * np.sin(angle)
+            
+            self.scene.add_light(
+                pos=[x_pos, y_pos, self.lights.ambient['height']],
+                dir=[0.0, 0.0, -1.0],
+                directional=self.lights.ambient['directional'],
+                castshadow=0,  # 环境光不产生阴影
+                cutoff=self.lights.ambient['cutoff_deg'],
+                attenuation= self.lights.ambient['attenuation'],
+                intensity= self.lights.ambient['intensity'],
+            )
+        
+        # 统计信息
+        total_wall_lights = 2 * len(wall_lpos_x) + 2 * len(wall_lpos_y)
+        total_ceiling_lights = grid_x * grid_y
+        
+        ezsim.logger.info(f"Built lighting system:")
+        ezsim.logger.info(f"  - {total_ceiling_lights} ceiling lights ({grid_x}x{grid_y} grid) at {self.lights.ceil['height']:.1f}m")
+        ezsim.logger.info(f"  - {total_wall_lights} wall lights ({len(wall_lpos_y)} front/back + {len(wall_lpos_x)} left/right each) at {self.lights.wall['height']:.1f}m")
+        ezsim.logger.info(f"  - {amlight_num} ambient lights at {self.lights.ambient['height']:.1f}m")
+        ezsim.logger.info(f"  - Wall lights positioned between ceiling light intervals to eliminate shadow patterns") 
+        SCENE_STATUS = 2
+        return self
+        
+    #FINISH: 已完成/基本无需检查 室内通过门的构建方法
+    def _build_gates(self):
+        """根据配置构建室内通过门"""
+        if self.scene is None:
+            raise ValueError("Scene not initialized. Call init_scene(args) first.")
+        
+        # 遍历方形门配置
+        sg_fpath = "meshes/drone_racing/square_gate.obj"
+        for gate_name, gate_cfg in self.gates['square'].items():
+            # 创建 SquareGate 实例并计算相关参数
+            gate = SquareGate(
+                pos=gate_cfg['pos'],
+                size=gate_cfg['size'],
+                direction=gate_cfg['direction'],
+                path_ratio=gate_cfg.get('path_ratio', 2.0),
+                texture=gate_cfg.get('texture', "textures/sjtu_square_gate.png")
+            )
+            gate.post_euler(self.robot_size)
+            
+            self.scene.add_entity(
+                morph=ezsim.morphs.Mesh(
+                    file=sg_fpath, 
+                    pos=gate.pos, 
+                    euler=gate.euler, 
+                    scale=gate.scale, 
+                    fixed=True
+                ),
+                surface=ezsim.surfaces.Rough(diffuse_texture=ezsim.textures.ImageTexture(image_path=gate.texture)) 
+                    if isinstance(gate.texture, str) else ezsim.surfaces.Rough(color=gate.texture)
+            )
+            self.occupied_spaces.append({
+                'name': gate_name, 
+                'type': 'gate_square', 
+                'pos': gate.pos,
+                'aabb': gate.aabb
+            })
+            ezsim.logger.info(f"Added square gate '{gate_name}' at {gate.pos} with size {gate.size}")
+        
+        # 遍历圆形门配置
+        cg_fpath = "meshes/drone_racing/circle_gate.obj"
+        for gate_name, gate_cfg in self.gates['circle'].items():
+            # 创建 CircleGate 实例并计算相关参数
+            gate = CircleGate(
+                pos=gate_cfg['pos'],
+                size=gate_cfg['size'],
+                direction=gate_cfg['direction'],
+                path_ratio=gate_cfg.get('path_ratio', 2.0),
+                # texture=gate_cfg.get('texture', "textures/sjtu_circle_gate.png")
+                texture=(0.925,0.015,0.0)
+            )
+            gate.post_euler(self.robot_size)
+            
+            self.scene.add_entity(
+                morph=ezsim.morphs.Mesh(
+                    file=cg_fpath, 
+                    pos=gate.pos, 
+                    euler=gate.euler, 
+                    scale=gate.scale, 
+                    fixed=True
+                ),
+                surface=ezsim.surfaces.Rough(diffuse_texture=ezsim.textures.ImageTexture(image_path=gate.texture)) 
+                    if isinstance(gate.texture, str) else ezsim.surfaces.Rough(color=gate.texture)
+            )
+            self.occupied_spaces.append({
+                'name': gate_name, 
+                'type': 'gate_circle',
+                'pos': gate.pos, 
+                'aabb': gate.aabb
+            })
+            ezsim.logger.info(f"Added circle gate '{gate_name}' at {gate.pos} with size {gate.size}")
+        
+        global SCENE_STATUS
+        SCENE_STATUS = 3
+        return self
+    
+    # UNFINISHED, not ready
+    def prealloc_obstacles(self):
+        # 0.检查是否已经完成gate的build
+        # 1.检查Obstacles的配置是否载入
+        ex,ey,ez = self.room.extent
+        obs_cnt = min(int(ex*ey*self.obstacles.density),self.obstacles.count)
+        max_attempts = obs_cnt * 10
+        obs_list = []
+        
+        try_cnt = 0
+        while len(obs_list) < obs_cnt and try_cnt < max_attempts:
+            # 随机生成障碍物位置
+            pos = (
+                random.uniform(-ex/2, ex/2),
+                random.uniform(-ey/2, ey/2),
+                random.uniform(0, ez)
+            )
+            # 检查位置是否被占用
+            if not self._is_space_occupied(pos, self.occupied_spaces):
+                obs_list.append({'pos': pos, 'size': (0.5, 0.5, 0.5)})  # 默认障碍物大小
+            try_cnt += 1
+    # UNFINISHED, not ready
+    def build_obstacles(self):
+
+        """根据配置生成障碍物"""
+        if self.scene is None:
+            raise ValueError("Scene not initialized. Call build_scene() first.")
+        
+        # 生成障碍物
+        obstacles = gen_obscfg(
+            extent=self.room.extent, 
+            drone_size=0.5,  # 假设无人机尺寸为0.5米
+            obstacle_config=self.obstacles.dict(),
+            occupied_spaces=self.occupied_spaces
+        )
+        
+        for obs in obstacles:
+            self.scene.add_entity(
+                morph=ezsim.morphs.Sphere(radius=obs['size'][0]/2, pos=obs['pos']),
+                surface=ezsim.surfaces.Rough(color=(0.5, 0.5, 0.5, 1.0))
+            )
+            self.occupied_spaces.append(obs)
 
 
+##################################
+# main
+##################################
 
 def main():
+    ##########################################
+    # args
+    ##########################################
     parser = argparse.ArgumentParser()
+    parser.add_argument("-f", "--file", type=str, default='examples/worldgen/indoor_config.yaml')
     parser.add_argument("-v", "--vis", action="store_true", default=False)
     parser.add_argument("-c", "--cpu", action="store_true", default=False)
     parser.add_argument("-b", "--n_envs", type=int, default=3)
@@ -635,10 +752,12 @@ def main():
     parser.add_argument("-r", "--render_all_cameras", action="store_true", default=False)
     parser.add_argument("-o", "--output_dir", type=str, default="img_output/test")
     parser.add_argument("-u", "--use_rasterizer", action="store_true", default=False)
+    parser.add_argument("-d", "--debug_occupied_spaces", action="store_true", default=False, help="Draw debug wireframe boxes for occupied spaces")
+
     # video recording options
     parser.add_argument("--dt", type=float, default=1e-2, help="Simulation time step")
-    parser.add_argument("--w", type=int, default=640, help="Camera width")
-    parser.add_argument("--h", type=int, default=480, help="Camera height")
+    parser.add_argument("--w", type=int, default=1280, help="Camera width")
+    parser.add_argument("--h", type=int, default=960, help="Camera height")
     parser.add_argument("--fps", type=int, default=30, help="Frames per second")
     parser.add_argument("--video_len", type=int, default=5, help="Video length in seconds")
     args = parser.parse_args()
@@ -646,84 +765,15 @@ def main():
     ##########################################
     # backend init
     ##########################################
-    ezsim.init(
-        seed=4320,
-        backend=ezsim.cpu if args.cpu else ezsim.gpu,
-        precision="32",
-        eps=1e-12,
-        log_time=False
-    )
+    SCENE_STATUS, SCENE = init_scene(args)
 
     ##########################################
-    # scene init
+    # indoor scene init/construct/build/run
     ##########################################
-    scene = ezsim.Scene(
-        sim_options=ezsim.options.SimOptions(dt=args.dt),
-        rigid_options=ezsim.options.RigidOptions(
-            box_box_detection=False,
-            max_collision_pairs=1000,
-            use_gjk_collision=True,
-            enable_mujoco_compatibility=False,
-        ),
-        renderer=ezsim.options.renderers.BatchRenderer(
-            use_rasterizer=args.use_rasterizer,
-        ),
-        vis_options=ezsim.options.VisOptions(show_world_frame=True),
-        show_viewer=False,
-    )
-
-    ##########################################
-    # entity group init/build
-    ##########################################
-    # 加载配置或使用默认配置
-    scene_config = load_all("indoor_config.yaml")  # 如果文件不存在会使用默认配置
-    
-    # 构建完整场景
-    floor_x, floor_y, roof_h = build_all(scene, scene_config)
-
-
-    ##########################################
-    # add cam/recoder/
-    # build scene
-    # init FrameImageExporter
-    ##########################################
-    cam_0 = scene.add_camera(
-        res=(args.w,args.h),
-        pos=(-floor_x//2,0,roof_h//2),
-        lookat=(0,0,roof_h//2),
-        fov=100,
-        GUI=args.vis
-    )
-    scene.add_light(
-        pos=[0.0, 0.0, roof_h-0.5],
-        dir=[0.0, 0.0, -1.0],
-        directional=0,
-        castshadow=1,
-        cutoff=45.0,
-        intensity=0.5,
-    )
-    scene.add_light(
-        pos=[floor_x/2, -floor_y/2, roof_h-0.5],
-        dir=[-1, 1, -1],
-        directional=0,
-        castshadow=1,
-        cutoff=45.0,
-        intensity=0.5,
-    )
-
-    scene.build(n_envs=args.n_envs)
-
-    exporter = FrameImageExporter(args.output_dir)
-
-    ##########################################
-    # render loop
-    ##########################################
-    for i in range(args.n_steps):
-        scene.step()
-        rgba, depth, normal_color, seg_color = \
-            scene.render_all_cameras(rgb=True, depth=True, normal=True,segmentation=True)
-        exporter.export_frame_all_cameras(i, rgb=rgba, depth=depth,normal=normal_color, segmentation=seg_color) 
-    
+    indoor_dojo = IndoorScene(yaml_path=args.file)  
+    indoor_dojo.construct(debug_occupied_spaces=args.debug_occupied_spaces)  # 根据命令行参数决定是否启用调试
+    indoor_dojo.build(n_envs=args.n_envs)
+    indoor_dojo.run(steps=args.n_steps, w_rgb=True, w_depth=True)
 
 
 if __name__ == "__main__":

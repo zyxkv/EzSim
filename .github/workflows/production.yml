@@ -28,6 +28,8 @@ jobs:
       # FIXME: madrona does not support CUDA heap size configuration
       # this environ is in https://github.com/shacklettbp/madrona_mjx/blob/1b03bc893f34f1204c3190c883f01c8a989b3b94/scripts/debug.py#L99
       # MADRONA_DISABLE_CUDA_HEAP_SIZE: "1"
+      OMNI_KIT_ACCEPT_EULA: "yes"
+      OMNI_KIT_ALLOW_ROOT: "1"
 
 
     steps:
@@ -51,6 +53,10 @@ jobs:
           if [[ -n "$IDLE_NODES" ]]; then
             NODELIST="--nodelist=$IDLE_NODES"
           fi
+          
+          # TODO: USD baking does not currently support Python 3.11 since
+          # NVIDIA does not currently release `omniverse-kit==107.3` on PyPI.
+          # See: https://github.com/Genesis-Embodied-AI/Genesis/pull/1300
 
           srun \
             --container-image="/mnt/data/images/ezsim-v${EZSIM_IMAGE_VER}.sqsh" \
@@ -64,7 +70,8 @@ jobs:
             --partition=hpc-mid ${NODELIST} --nodes=1 --time="${TIMEOUT_MINUTES}" \
             --job-name=${SLURM_JOB_NAME} \
             bash -c "
-              pip install -e '.[dev,render]' && \
+              pip install --extra-index-url https://pypi.nvidia.com/ omniverse-kit && \
+              pip install -e '.[dev,render,usd]' && \
               pytest -v --forked ./tests
             "
 

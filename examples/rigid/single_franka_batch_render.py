@@ -15,6 +15,9 @@ def main():
     parser.add_argument("-r", "--render_all_cameras", action="store_true", default=False)
     parser.add_argument("-o", "--output_dir", type=str, default="img_output/test")
     parser.add_argument("-u", "--use_rasterizer", action="store_true", default=False)
+    parser.add_argument("-d", "--debug", action="store_true", default=False)
+
+    parser.add_argument("-t", "--dt", type=float, default=0.01)
     args = parser.parse_args()
 
     ########################## init ##########################
@@ -26,6 +29,7 @@ def main():
 
     ########################## create a scene ##########################
     scene = ezsim.Scene(
+        sim_options=ezsim.options.SimOptions(dt=args.dt),
         renderer=ezsim.options.renderers.BatchRenderer(
             use_rasterizer=args.use_rasterizer,
         ),
@@ -49,6 +53,15 @@ def main():
     #     GUI=args.vis,
     # )
     # cam_0.attach(franka.links[6], trans_to_T(np.array([0.0, 0.5, 0.0])))
+    debug_cam = scene.add_camera(
+        res=(720, 1280),
+        pos=(1.5, -0.5, 1.0),
+        lookat=(0.0, 0.0, 0.5),
+        fov=60,
+        GUI=args.vis,
+        debug=True,
+    )
+
     cam_1 = scene.add_camera(
         res=(640, 480),
         pos=(1.5, -0.5, 1.5),
@@ -60,17 +73,21 @@ def main():
     scene.add_light(
         pos=[0.0, 0.0, 1.5],
         dir=[1.0, 1.0, -2.0],
+        color=[1.0, 0.3, 0.3],
         directional=1,
         castshadow=1,
         cutoff=45.0,
+        attenuation=0.0,  # 1/(1 + attenuation*dist^2)
         intensity=0.5,
     )
     scene.add_light(
         pos=[4, -4, 4],
         dir=[-1, 1, -1],
+        color=[1.0, 1.0, 1.0],
         directional=0,
         castshadow=1,
         cutoff=45.0,
+        attenuation=0.02,  # 1/(1 + attenuation*dist^2)
         intensity=0.5,
     )
 
@@ -79,9 +96,13 @@ def main():
 
     # Create an image exporter
     exporter = FrameImageExporter(args.output_dir)
+    if args.debug:
+        debug_cam.start_recording()
 
     for i in range(args.n_steps):
         scene.step()
+        if args.debug:
+            debug_cam.render()
         if args.render_all_cameras:
             rgba, depth, normal_color, seg_color = scene.render_all_cameras(rgb=True, depth=True, normal=True,segmentation=True)
             exporter.export_frame_all_cameras(i, rgb=rgba, depth=depth,normal=normal_color, segmentation=seg_color) 
@@ -89,6 +110,8 @@ def main():
             rgba, depth, _, _ = cam_1.render(rgb=True, depth=True)
             exporter.export_frame_single_camera(i, cam_1.idx, rgb=rgba, depth=depth)
 
+    if args.debug:
+        debug_cam.stop_recording("debug_cam.mp4")
 
 if __name__ == "__main__":
     main()

@@ -163,7 +163,7 @@ class RigidEntity(Entity):
                 dict(
                     contype=0,
                     conaffinity=0,
-                    vmesh=ezsim.Mesh.from_trimesh(tmesh, surface=surface),
+                    vmesh=ezsim.Mesh.from_trimesh(tmesh, surface=surface, metadata={}),
                 )
             )
         if morph.collision:

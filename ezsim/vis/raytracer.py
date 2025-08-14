@@ -157,19 +157,24 @@ class Raytracer:
         self.lights = []
         for light in options.lights:
             light_intensity = light.get("intensity", 1.0)
-            self.lights.append(
-                SphereLight(
-                    radius=light["radius"],
-                    pos=light["pos"],
-                    surface=ezsim.surfaces.Emission(
-                        color=(
-                            light["color"][0] * light_intensity,
-                            light["color"][1] * light_intensity,
-                            light["color"][2] * light_intensity,
-                        ),
-                    ),
-                )
+            # self.lights.append(
+            #     SphereLight(
+            #         radius=light["radius"],
+            #         pos=light["pos"],
+            #         surface=ezsim.surfaces.Emission(
+            #             color=(
+            #                 light["color"][0] * light_intensity,
+            #                 light["color"][1] * light_intensity,
+            #                 light["color"][2] * light_intensity,
+            #             ),
+            #         ),
+            #     )
+            # )
+            light_surface = ezsim.surfaces.Emission(
+                color=map(lambda x: x * light_intensity, light["color"]),
             )
+            light_surface.update_texture()
+            self.lights.append(SphereLight(radius=light["radius"], pos=light["pos"], surface=light_surface))
 
         #FIXME: unveiled issue "https://github.com/Genesis-Embodied-AI/Genesis/issues/786"
         # but i fix it by degrade args compat with src/apps/py_interface.cpp:Line 37 init method

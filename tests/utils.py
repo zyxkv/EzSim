@@ -24,12 +24,13 @@ import ezsim.utils.geom as gu
 from ezsim.utils import mjcf as mju
 from ezsim.utils.mesh import get_assets_dir
 from ezsim.utils.misc import tensor_to_array
+from ezsim.options.morphs import URDF_FORMAT, MJCF_FORMAT, MESH_FORMATS, GLTF_FORMATS, USD_FORMATS
 
 
 REPOSITY_URL = "zyxkv/EzSim"
 DEFAULT_BRANCH_NAME = "main"
 
-MESH_EXTENSIONS = (".mtl", ".glb", ".obj", ".stl", ".usb", ".usdz", ".mdl")
+MESH_EXTENSIONS = (".mtl", *MESH_FORMATS, *GLTF_FORMATS, *USD_FORMATS)
 IMAGE_EXTENSIONS = (".png", ".jpg")
 
 # Get repository "root" path (actually test dir is good enough)
@@ -173,7 +174,7 @@ def get_hf_assets(pattern,
     local_dir: str | None = None, 
     num_retry: int = 4, 
     retry_delay: float = 30.0, 
-    check: bool = True
+    local_dir_use_symlinks: bool = True,
 ):
     assert num_retry >= 1
 
@@ -186,6 +187,8 @@ def get_hf_assets(pattern,
                 repo_id=f"Genesis-Intelligence/{repo_name}",
                 allow_patterns=pattern,
                 max_workers=1,
+                local_dir=local_dir,
+                local_dir_use_symlinks=local_dir_use_symlinks,
             )
 
             # Make sure that download was successful
@@ -194,7 +197,7 @@ def get_hf_assets(pattern,
                 if not path.is_file():
                     continue
                 ext = path.suffix.lower()
-                if not ext in (".xml", ".urdf", *IMAGE_EXTENSIONS, *MESH_EXTENSIONS):
+                if not ext in (URDF_FORMAT, MJCF_FORMAT, *IMAGE_EXTENSIONS, *MESH_EXTENSIONS):
                     continue
                 has_files = True
 
@@ -209,7 +212,7 @@ def get_hf_assets(pattern,
                     # TODO: Validating mesh files is more tricky. Ignoring them for now.
                     pass
 
-                if path.suffix.lower() in (".xml", ".urdf"):
+                if path.suffix.lower() in (URDF_FORMAT, MJCF_FORMAT):
                     try:
                         ET.parse(path)
                     except ET.ParseError as e:

@@ -11,7 +11,7 @@ import ezsim
 from ezsim.repr_base import RBC
 
 try:
-    from gs_madrona.renderer_gs import MadronaBatchRendererAdapter
+    from ez_madrona.renderer_gs import MadronaBatchRendererAdapter
 except ImportError as e:
     ezsim.raise_exception_from("Madrona batch renderer is only supported on Linux x86-64.", e)
 

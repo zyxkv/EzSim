@@ -458,6 +458,7 @@ class Scene(RBC):
         directional: bool | None = None,
         castshadow: bool | None = None,
         cutoff: float | None = None,
+        attenuation: float | None = None,
         # morph: Morph,
         # color=(1.0, 1.0, 1.0, 1.0),
         # intensity=20.0,
@@ -472,7 +473,7 @@ class Scene(RBC):
         -------
         The signature of this method is different depending on the renderer being used, i.e.:
         - RayTracer: 'add_light(self, morph, color, intensity, revert_dir, double_sided, beam_angle)'
-        - BatchRender: 'add_ligth(self, pos, dir, intensity, directional, castshadow, cutoff)'
+        - BatchRender: 'add_light(self, pos, dir, color, directional, castshadow, cutoff, attenuation, intensity)'
         - Rasterizer: **Unsupported**
 
         Parameters
@@ -480,7 +481,7 @@ class Scene(RBC):
         morph : ezsim.morphs.Morph
             The morph of the light. Must be an instance of `ezsim.morphs.Primitive` or `ezsim.morphs.Mesh`. Only supported by RayTracer.
         color : tuple of float, shape (3,)
-            The color of the light, specified as (r, g, b). Only supported by RayTracer.
+            The color of the light, specified as (r, g, b).
         intensity : float
             The intensity of the light.
         revert_dir : bool
@@ -499,6 +500,8 @@ class Scene(RBC):
             Whether the light casts shadows. Only supported by BatchRenderer.
         cutoff : float
             The cutoff angle of the light. Only supported by BatchRenderer.
+        attenuation : float
+            The attenuation factor of the light. Only supported by BatchRenderer.
 
         """
 
@@ -506,7 +509,7 @@ class Scene(RBC):
             if any(map(lambda e: e is None, (pos, dir, intensity, directional, castshadow, cutoff))):
                 ezsim.raise_exception("Input arguments do not complain with expected signature when using 'BatchRenderer'")
 
-            self.visualizer.add_light(pos, dir, intensity, directional, castshadow, cutoff)
+            self.visualizer.add_light(pos, dir, color, directional, castshadow, cutoff, attenuation, intensity)
 
         elif self.visualizer.raytracer is not None:
             if any(map(lambda e: e is None, (morph, color, intensity, revert_dir, double_sided, beam_angle))):
@@ -546,13 +549,14 @@ class Scene(RBC):
         # denoise=True,
         denoise=None,
         env_idx=None,
+        debug=False,
     ):
         """
         Add a camera to the scene.
 
-        The camera model can be either 'pinhole' or 'thinlens'. The 'pinhole' model is a simple camera model that
-        captures light rays from a single point in space. The 'thinlens' model is a more complex camera model that
-        simulates a lens with a finite aperture size, allowing for depth of field effects.
+        The camera model can be either 'pinhole' or 'thinlens'. 
+        The 'pinhole' model is a simple camera model that captures light rays from a single point in space. 
+        The 'thinlens' model is a more complex camera model that simulates a lens with a finite aperture size, allowing for depth of field effects.
 
         Warning
         -------
@@ -584,7 +588,13 @@ class Scene(RBC):
             Whether to denoise the camera's rendered image. Only available when using the RayTracer renderer. Defaults
             to True on Linux, otherwise False. If OptiX denoiser is not available in your platform, consider enabling
             the OIDN denoiser option when building the RayTracer.
-            
+        debug : bool
+            Whether to use the debug camera. It enables to create cameras that can used to monitor / debug the
+            simulation without being part of the "sensors". Their output is rendered by the usual simple Rasterizer
+            systematically, no matter if BatchRender and RayTracer is enabled. This way, it is possible to record the
+            simulation with arbitrary resolution and camera pose, without interfering with what robots can perceive
+            from their environment. Defaults to False.
+
         Returns
         -------
         camera : ezsim.Camera
@@ -593,7 +603,7 @@ class Scene(RBC):
         if denoise is None:
             denoise = sys.platform != "darwin"
 
-        return self._visualizer.add_camera(res, pos, lookat, up, model, fov, aperture, focus_dist, GUI, spp, denoise, env_idx=env_idx)
+        return self._visualizer.add_camera(res, pos, lookat, up, model, fov, aperture, focus_dist, GUI, spp, denoise, env_idx, debug)
 
     @ezsim.assert_unbuilt
     def add_emitter(
