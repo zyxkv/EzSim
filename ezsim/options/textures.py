@@ -14,7 +14,7 @@ from .options import Options
 
 class Texture(Options):
     """
-    Base class for Genesis's texture objects.
+    Base class for EzSim's texture objects.
 
     Note
     ----

@@ -659,7 +659,7 @@ class BVHTree:
 
                 if ga == gb:
                     print(
-                        f"{colors.YELLOW}[Genesis] [00:00:00] [WARNING] ga ({ga}) == gb ({gb}) ({ctype})."
+                        f"{colors.YELLOW}[EzSim] [00:00:00] [WARNING] ga ({ga}) == gb ({gb}) ({ctype})."
                         f"{formats.RESET}"
                     )
                 if ga >= gb:

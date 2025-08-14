@@ -12,7 +12,7 @@ from .textures import ColorTexture, ImageTexture, Texture
 ############################ Base ############################
 class Surface(Options):
     """
-    Base class for all surfaces types in Genesis.
+    Base class for all surfaces types in EzSim.
     A ``Surface`` object encapsulates all visual information used for rendering an entity or its sub-components (links, geoms, etc.)
     The surface contains different types textures: diffuse_texture, specular_texture, roughness_texture, metallic_texture, transmission_texture, normal_texture, and emissive_texture. Each one of them is a `ezsim.textures.Texture` object.
 
@@ -282,7 +282,7 @@ class Surface(Options):
 ############################ Three surface types ############################
 class Glass(Surface):
     """
-    Base class for all surfaces types in Genesis.
+    Base class for all surfaces types in EzSim.
     A ``Surface`` object encapsulates all visual information used for rendering an entity or its sub-components (links, geoms, etc.)
     The surface contains different types textures: diffuse_texture, specular_texture, roughness_texture, metallic_texture, normal_texture, and emissive_texture. Each one of them is a `ezsim.textures.Texture` object.
 
@@ -581,7 +581,7 @@ class BSDF(Surface):
 
 class Emission(Surface):
     """
-    Emission surface. This surface emits light. Note that in Genesis's ray tracing pipeline, lights are not a special type of objects, but simply entities with emission surfaces.
+    Emission surface. This surface emits light. Note that in EzSim's ray tracing pipeline, lights are not a special type of objects, but simply entities with emission surfaces.
 
     Parameters
     ----------
@@ -601,7 +601,7 @@ class Emission(Surface):
 ############################ Handy shortcuts ############################
 class Default(BSDF):
     """
-    The default surface type used in Genesis. This is just an alias for `Plastic`.
+    The default surface type used in EzSim. This is just an alias for `Plastic`.
     """
 
     pass

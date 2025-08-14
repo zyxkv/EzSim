@@ -44,7 +44,7 @@ def torch_op_wrapper(torch_op):
             ezsim.raise_exception("Device selection not supported. All ezsim tensors are on GPU.")
 
         if not ezsim._initialized:
-            ezsim.raise_exception("Genesis not initialized yet.")
+            ezsim.raise_exception("EzSim not initialized yet.")
 
         if torch_op is torch.from_numpy:
             torch_tensor = torch_op(*args)

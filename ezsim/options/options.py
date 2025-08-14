@@ -16,7 +16,7 @@ class Options(BaseModel, RBC):
 
     Tip
     ----
-    We build multiple classes based on this concept throughout Genesis, such as `ezsim.options.morphs`, `ezsim.renderers`, `ezsim.surfaces`, and `ezsim.textures`. Note that some of them, although inheriting from `Options`, are accessible directly under the `gs` namespace for convenience.
+    We build multiple classes based on this concept throughout EzSim, such as `ezsim.options.morphs`, `ezsim.renderers`, `ezsim.surfaces`, and `ezsim.textures`. Note that some of them, although inheriting from `Options`, are accessible directly under the `gs` namespace for convenience.
     """
 
     def __init__(self, **data):

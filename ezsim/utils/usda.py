@@ -21,7 +21,7 @@ try:
     from pxr import Usd, UsdGeom, UsdShade, Sdf
 except ImportError as e:
     ezsim.raise_exception_from(
-        "Failed to import USD dependencies. Try installing Genesis with 'usd' optional dependencies.", e
+        "Failed to import USD dependencies. Try installing EzSim with 'usd' optional dependencies.", e
     )
 
 cs_encode = {

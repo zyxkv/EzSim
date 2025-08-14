@@ -17,7 +17,7 @@ if [[ -z "${WANDB_API_KEY}" ]] ; then
     exit 1;
 fi
 
-# Make sure that Genesis is properly installed, with including all its requirements
+# Make sure that EzSim is properly installed, with including all its requirements
 pip uninstall --no-input -y ezsim
 pip install --no-input --no-user --no-cache --quiet -e ".[dev]" "libigl==2.5.1"
 

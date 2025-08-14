@@ -28,6 +28,7 @@ from ezsim.options import (
     PBDOptions,
     ProfilingOptions,
     RigidOptions,
+    SensorOptions,
     SFOptions,
     SimOptions,
     SPHOptions,
@@ -533,6 +534,11 @@ class Scene(RBC):
         #     mesh, color, intensity, morph.pos, morph.quat, revert_dir, double_sided, beam_angle
         # )
 
+
+    @ezsim.assert_unbuilt
+    def add_sensor(self, sensor_options: SensorOptions):
+        return self._sim._sensor_manager.create_sensor(sensor_options)
+    
     @ezsim.assert_unbuilt
     def add_camera(
         self,

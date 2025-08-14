@@ -1,17 +1,18 @@
 from typing import Literal
 import inspect
+import math 
 import os
 import time
 from functools import lru_cache
 
-import torch 
-import math
 import cv2
 import numpy as np
+import torch 
 
 import ezsim
 import ezsim.utils.geom as gu
-from ezsim.sensors import Sensor
+# from ezsim.sensors import Sensor
+from ezsim.repr_base import RBC
 from ezsim.utils.misc import tensor_to_array
 
 # quat for Madrona needs to be transformed to y-forward
@@ -27,7 +28,7 @@ def _T_to_quat_for_madrona(T):
 
 
 
-class Camera(Sensor):
+class Camera(RBC):
     """
     A camera which can be used to render RGB, depth, and segmentation images.
     Supports either rasterizer or raytracer for rendering, specified by `scene.renderer`.

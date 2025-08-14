@@ -112,7 +112,7 @@ class BatchRenderer(RBC):
         cameras_znear = torch.tensor([camera.near for camera in self._cameras], dtype=ezsim.tc_float, device=ezsim.device)
         cameras_zfar = torch.tensor([camera.far for camera in self._cameras], dtype=ezsim.tc_float, device=ezsim.device)
         # Build taichi arrays to store light properties once. If later we need to support dynamic lights, we should
-        # consider storing light properties as taichi fields in Genesis.
+        # consider storing light properties as taichi fields in EzSim.
         n_lights = len(self._lights)
         light_pos = torch.tensor([light.pos for light in self._lights], dtype=ezsim.tc_float)
         light_dir = torch.tensor([light.dir for light in self._lights], dtype=ezsim.tc_float)
