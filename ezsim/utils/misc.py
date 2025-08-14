@@ -142,7 +142,7 @@ def assert_built(method):
     @functools.wraps(method)
     def wrapper(self, *args, **kwargs):
         if not self.is_built:
-            ezsim.raise_exception("Scene is not built yet.")
+            ezsim.raise_exception(f"{type(self).__name__} is not built yet.")
         return method(self, *args, **kwargs)
 
     return wrapper

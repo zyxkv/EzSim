@@ -184,7 +184,7 @@ def get_constraint_state(constraint_solver, solver):
         "efc_D": V(dtype=ezsim.ti_float, shape=solver._batch_shape(len_constraints_)),
         "efc_frictionloss": V(dtype=ezsim.ti_float, shape=solver._batch_shape(len_constraints_)),
         "efc_force": V(dtype=ezsim.ti_float, shape=solver._batch_shape(len_constraints_)),
-        "active": V(dtype=ezsim.ti_int, shape=solver._batch_shape(len_constraints_)),
+        "active": V(dtype=ezsim.ti_bool, shape=solver._batch_shape(len_constraints_)),
         "prev_active": V(dtype=ezsim.ti_int, shape=solver._batch_shape(len_constraints_)),
         "qfrc_constraint": V(dtype=ezsim.ti_float, shape=solver._batch_shape(solver.n_dofs_)),
         "qacc": V(dtype=ezsim.ti_float, shape=solver._batch_shape(solver.n_dofs_)),
