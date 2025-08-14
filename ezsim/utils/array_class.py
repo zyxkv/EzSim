@@ -1151,6 +1151,7 @@ def get_dofs_state(solver):
         "act_length": V(dtype=ezsim.ti_float, shape=shape),
         "pos": V(dtype=ezsim.ti_float, shape=shape),
         "vel": V(dtype=ezsim.ti_float, shape=shape),
+        "vel_prev": V(dtype=ezsim.ti_float, shape=shape),
         "acc": V(dtype=ezsim.ti_float, shape=shape),
         "acc_smooth": V(dtype=ezsim.ti_float, shape=shape),
         "qf_smooth": V(dtype=ezsim.ti_float, shape=shape),
