@@ -39,42 +39,59 @@ lighting:
     intensity: 0.125
 
 # 无人机基本参数
-robot_size: [0.3, 0.3, 0.3]    # 无人机特征尺寸 (米)，用于自适应生成障碍物
+robot:
+  size: [0.3, 0.3, 0.3]    # 无人机特征尺寸 (米)，用于自适应生成障碍物
+  vts: 1.0 # 无人机时间采样倒数 （gt_speed = speed * vts）
+  dp_fwd: [0.75, 5.75]  # 无人机前向运动的速度范围
 
 # 门配置 - 无人机需要穿越的通道
 gates:
-  square:
-    gs1:
-      type: 'gate_square'      # 方形门
-      pos: [-8, 0, 1.5]      # 位置 [x, y, z]
-      size: [1.3, 1.3, 0.05]        # 尺寸 [宽度, 高度]
-      direction: 'x'      # 门的方向: 'x' 或 'y'
-      path_ratio: 3.0      # 门前后需要保持的净空距离
-
-    gs2:
-      type: 'gate_square'
-      pos: [-10, -2, 1.7]
-      size: [1.3, 1.3, 0.05]
-      direction: 'x'
-      path_ratio: 3.0
-
-  circle:
-    gc1:
-        type: 'gate_circle'      # 圆形门
-        pos: [-10, 3, 1.7]     # 位置 [x, y, z]
-        size: [0.7, 0.7, 0.05]          # 尺寸 [半径]
-        direction: 'x'      # 门的方向: 'x' 或 'y'
-        path_ratio: 3.0      # 门前后需要保持的净空距离
+  square_gate_1:
+    pos: [-10,-2,1.5]
+    size: [1.3,1.3,0.05]
+    direction: 'x'
+  square_gate_2:
+    pos: [-8,0,1.7]
+    size: [1.3,1.3,0.05]
+    direction: 'x'
+  circle_gate_1:
+    pos: [-10,3,1.7]
+    size: [1.4,1.4,0.1]
+    direction: 'x'
+  circle_gate_2:
+    pos: [4,5,1.5]
+    size: [1.4,1.4,0.1]
+    direction: 'x'
     
-
 # 障碍物配置
 obstacles:
-  difficulty: 'medium'  # 难度级别: 'easy', 'medium', 'hard'
-  types: ['sphere','box','cylinder']
-  count: 50
-  density: 0.2
-  path_ratio: 2.0
-  size_variation: [0.5,0.5,0.125]
+  roof: # meta dict for changing floating box/sphere to roof obstacles
+    prob: 0.4       # less than 0.5
+    height: 2.5     # roof height
+    size: [1.5,1.5,1.5]  # roof obstacles expanded size.
+  pillar: # vertical cylinder/box thin-pipe across z-axis
+    num: 30
+    pos: [[-15, -4, 0], [15, 4, 0]]
+    size: [[0.05, 0.05, 4], [0.4, 0.4, 8]]
+    incident: 30
+  box: # floating/on roof sphere, if on_roof, can lock on second half pillar top
+    num: 30
+    pos: [[-15, -4, -0.1], [15, 4, 6]]
+    size: [[0.2, 0.2, 0.2], [0.3, 0.3, 0.3]]
+  sphere: # floating/on roof sphere, if on_roof, can lock on first half pillar top
+    num: 30
+    pos: [[-15, -4, -0.1], [15, 4, 6]]
+    size: [[0.4, 0.4, 0.4], [0.6, 0.6, 0.6]]
+  bump:  # on-ground sphere/box mimic random bump, max height of bump should less than 1m
+    num: 10
+    pos: [[-12, -4, 0], [12, 4, 0]]
+    size: [[0.1, 0.1, 0.1], [2.9,2.9,2]]
+  arrest:  # horizontal cylinder/box thin-pipe across y-axis
+    num: 3
+    pos: [[-12, 0, 0], [12, 0, 5]]
+    size: [[0.05, 0.05, 0.05], [0.15, 0.15, 0.15]]
+    incident: 10
+  
 
 # 相机配置
 camera:
@@ -85,8 +102,8 @@ camera:
     fov: 80
     gui: false
   drone_sim:
-    pos: [-10.3,-2.0,1.6]
-    lookat: [0.0,0.0,1.6]
-    res: [640, 480]
+    pos: [0.0,-4.9,5.0]
+    lookat: [0.0,0.0,3.0]
+    res: [1920, 1080]
     fov: 150
     gui: false

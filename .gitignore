@@ -161,4 +161,6 @@ test_*.py
 ext_assets/
 examples/video
 img_output/
-DIFF_*.md    
+DIFF_*.md 
+# .github/chatmodes/  
+ezsim/assets/meshes/drone_racing

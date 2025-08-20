@@ -10,7 +10,7 @@ import os
 
 
 
-def generate_sphere_obj(filename: str, radius: float = 1.0, segments: int = 32, rings: int = 16):
+def generate_sphere_obj(filename: str, radius: float = 0.5, segments: int = 32, rings: int = 16):
     """生成球体的OBJ文件（包含UV坐标）"""
     vertices = []
     uv_coords = []
@@ -96,19 +96,20 @@ def generate_box_obj(filename: str, width: float = 1.0, height: float = 1.0, dep
     
     # 面定义（包含顶点索引和UV索引）
     # 格式：[顶点索引/UV索引, 顶点索引/UV索引, 顶点索引/UV索引]
+    # 重要：所有三角形按“从外部观察为逆时针(CCW)”顺序书写，以匹配大多数渲染器的正面判定
     faces = [
-        # 前面 (Z-)
-        [(1, 1), (2, 2), (3, 3)], [(3, 3), (4, 4), (1, 1)],
-        # 后面 (Z+)
-        [(5, 1), (8, 4), (7, 3)], [(7, 3), (6, 2), (5, 1)],
+        # 后面 (Z-)
+        [(1, 1), (3, 3), (2, 2)], [(1, 1), (4, 4), (3, 3)],
+        # 前面 (Z+)
+        [(5, 1), (6, 2), (7, 3)], [(5, 1), (7, 3), (8, 4)],
         # 左面 (X-)
-        [(4, 1), (8, 4), (5, 1)], [(5, 1), (1, 1), (4, 4)],
+        [(1, 1), (5, 1), (8, 4)], [(1, 1), (8, 4), (4, 4)],
         # 右面 (X+)
-        [(2, 1), (6, 2), (7, 3)], [(7, 3), (3, 4), (2, 1)],
+        [(2, 1), (3, 4), (7, 3)], [(2, 1), (7, 3), (6, 2)],
         # 底面 (Y-)
-        [(1, 1), (5, 2), (6, 3)], [(6, 3), (2, 4), (1, 1)],
+        [(1, 1), (2, 1), (6, 3)], [(1, 1), (6, 3), (5, 2)],
         # 顶面 (Y+)
-        [(4, 1), (3, 2), (7, 3)], [(7, 3), (8, 4), (4, 1)],
+        [(4, 1), (8, 4), (7, 3)], [(4, 1), (7, 3), (3, 2)],
     ]
     
     with open(filename, 'w') as f:
@@ -134,7 +135,7 @@ def generate_box_obj(filename: str, width: float = 1.0, height: float = 1.0, dep
     
     print(f"Generated box model with UV coordinates: {filename}")
 
-def generate_cylinder_obj(filename: str, radius: float = 1.0, height: float = 2.0, segments: int = 32):
+def generate_cylinder_obj(filename: str, radius: float = 0.5, height: float = 1.0, segments: int = 32):
     """生成圆柱体的OBJ文件（包含UV坐标）"""
     vertices = []
     uv_coords = []
@@ -337,8 +338,8 @@ def generate_frustum_obj(filename: str, bottom_size: float = 1.0, top_size: floa
     
     print(f"Generated square frustum model: {filename}")
 
-def generate_cone_frustum_obj(filename: str, bottom_radius: float = 1.0, top_radius: float = 0.5, 
-                             height: float = 2.0, segments: int = 32):
+def generate_cone_frustum_obj(filename: str, bottom_radius: float = 0.5, top_radius: float = 0.25, 
+                             height: float = 1.0, segments: int = 32):
     """生成圆台的OBJ文件"""
     vertices = []
     faces = []
@@ -401,22 +402,22 @@ def main():
     pi_seg = 128
     """主函数：生成所有基础几何体障碍物"""
     # 创建输出目录
-    output_dir = "simple_obstacles"
+    output_dir = "ezsim/assets/meshes/drone_racing"
     os.makedirs(output_dir, exist_ok=True)
     
     print("Generating basic geometry obstacle models...")
     
-    # 生成球体 (半径1.0，使用适中的精度)
+    # 生成球体 (半径0.5，使用适中的精度)
     generate_sphere_obj(os.path.join(output_dir, "sphere.obj"), 
-                       radius=1.0, segments=pi_seg, rings=pi_seg//2)
-    
+                       radius=0.5, segments=pi_seg, rings=pi_seg//2)
+
     # 生成立方体 (1x1x1)
     generate_box_obj(os.path.join(output_dir, "box.obj"))
-    
-    # 生成圆柱体 (半径1.0，高度2.0)
+
+    # 生成圆柱体 (半径0.5，高度1.0)
     generate_cylinder_obj(os.path.join(output_dir, "cylinder.obj"), 
-                         radius=1.0, height=2.0, segments=pi_seg)
-    
+                         radius=0.5, height=1.0, segments=pi_seg)
+
     # 生成三棱锥 (底边长1.0，高度1.0)
     generate_triangular_pyramid_obj(os.path.join(output_dir, "triangular_pyramid.obj"))
     
@@ -426,10 +427,10 @@ def main():
     # 生成四棱台 (底边长1.0，顶边长0.5，高度1.0)
     generate_frustum_obj(os.path.join(output_dir, "square_frustum.obj"))
     
-    # 生成圆台 (底半径1.0，顶半径0.5，高度2.0)
+    # 生成圆台 (底半径0.5，顶半径0.25，高度1.0)
     generate_cone_frustum_obj(os.path.join(output_dir, "cone_frustum.obj"), 
-                             bottom_radius=1.0, top_radius=0.5, height=2.0, segments=pi_seg)
-    
+                             bottom_radius=0.5, top_radius=0.25, height=1.0, segments=pi_seg)
+
     print(f"\n所有障碍物模型已保存到 '{output_dir}' 目录:")
     print(f"- sphere.obj (球体)")
     print(f"- box.obj (立方体)")

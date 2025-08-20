@@ -34,7 +34,7 @@ class SensorOptions(Options):
         """
         read_delay_hz = self.read_delay / scene._sim.dt
         if not np.isclose(read_delay_hz, round(read_delay_hz), atol=1e-6):
-            gs.logger.warn(
+            ezsim.logger.warn(
                 f"Read delay should be a multiple of the simulation time step. Got {self.read_delay}"
                 f" and {scene._sim.dt}. Actual read delay will be {1/round(read_delay_hz)}."
             )

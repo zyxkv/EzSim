@@ -1045,8 +1045,7 @@ class RigidEntity(Entity):
 
         if return_error:
             qpos, error_pose = ret
-            error_pose = error_pose.squeeze(-2)  # 1 single link
-            return qpos, error_pose
+            return qpos, error_pose[..., 0, :]
 
         else:
             return ret
@@ -1055,8 +1054,8 @@ class RigidEntity(Entity):
     def inverse_kinematics_multilink(
         self,
         links,
-        poss=[],
-        quats=[],
+        poss=None,
+        quats=None,
         init_qpos=None,
         respect_joint_limit=True,
         max_samples=50,
@@ -1116,9 +1115,8 @@ class RigidEntity(Entity):
         (optional) error_pose : array_like, shape (6,) or (n_envs, 6) or (len(envs_idx), 6)
             Pose error for each target. The 6-vector is [err_pos_x, err_pos_y, err_pos_z, err_rot_x, err_rot_y, err_rot_z]. Only returned if `return_error` is True.
         """
-        if self._solver.n_envs > 0:
-            envs_idx = self._scene._sanitize_envs_idx(envs_idx)
-
+        
+        envs_idx = self._scene._sanitize_envs_idx(envs_idx)
         if not self._requires_jac_and_IK:
             ezsim.raise_exception(
                 "Inverse kinematics and jacobian are disabled for this entity. Set `morph.requires_jac_and_IK` to True if you need them."
@@ -1131,13 +1129,15 @@ class RigidEntity(Entity):
         if n_links == 0:
             ezsim.raise_exception("Target link not provided.")
 
-        if len(poss) == 0:
+        poss = list(poss) if poss is not None else []
+        if not poss:
             poss = [None for _ in range(n_links)]
             pos_mask = [False, False, False]
         elif len(poss) != n_links:
             ezsim.raise_exception("Accepting only `poss` with length equal to `links` or empty list.")
 
-        if len(quats) == 0:
+        quats = list(quats) if quats is not None else []
+        if not quats:
             quats = [None for _ in range(n_links)]
             rot_mask = [False, False, False]
         elif len(quats) != n_links:
