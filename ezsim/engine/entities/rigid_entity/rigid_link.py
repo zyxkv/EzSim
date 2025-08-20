@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import gstaichi as ti
 import torch
-from numpy.typing import ArrayLike
+from numpy.typing import ArrayLike, NDArray
 
 import ezsim
 import trimesh
@@ -26,30 +26,30 @@ class RigidLink(RBC):
 
     def __init__(
         self,
-        entity,
-        name,
-        idx,
-        joint_start,
-        n_joints,
-        geom_start,
-        cell_start,
-        vert_start,
-        face_start,
-        edge_start,
-        verts_state_start,
-        vgeom_start,
-        vvert_start,
-        vface_start,
-        pos,
-        quat,
-        inertial_pos,
-        inertial_quat,
-        inertial_i,
-        inertial_mass,
-        parent_idx,
-        root_idx,
-        invweight,
-        visualize_contact,
+        entity: "RigidEntity",
+        name: str,
+        idx: int,
+        joint_start: int,
+        n_joints: int,
+        geom_start: int,
+        cell_start: int,
+        vert_start: int,
+        face_start: int,
+        edge_start: int,
+        verts_state_start: int,
+        vgeom_start: int,
+        vvert_start: int,
+        vface_start: int,
+        pos: ArrayLike,
+        quat: ArrayLike,
+        inertial_pos: ArrayLike | None,
+        inertial_quat: ArrayLike | None,
+        inertial_i: ArrayLike | None, # Inertia tensor (3x3) in local frame, maybe None, eg. Plane
+        inertial_mass: float | None, # maybe None, eg. Plane
+        parent_idx: int,
+        root_idx: int | None,
+        invweight: float | None,
+        visualize_contact: bool,
     ):
         self._name: str = name
         self._entity: "RigidEntity" = entity
@@ -87,13 +87,13 @@ class RigidLink(RBC):
         if inertial_quat is not None:
             inertial_quat = np.asarray(inertial_quat, dtype=ezsim.np_float)
         self._inertial_quat: ArrayLike | None = inertial_quat
-        self._inertial_mass = inertial_mass
-        self._inertial_i = inertial_i
+        self._inertial_mass: float | None = inertial_mass
+        self._inertial_i: ArrayLike | None = inertial_i
 
         self._visualize_contact = visualize_contact
 
         self._geoms: list[RigidGeom] = ezsim.List()
-        self._vgeoms = ezsim.List()
+        self._vgeoms: list[RigidVisGeom] = ezsim.List()
 
     def _build(self):
         for geom in self._geoms:
@@ -431,35 +431,35 @@ class RigidLink(RBC):
         return self._uid
 
     @property
-    def name(self):
+    def name(self) -> str:
         """
         The name of the link.
         """
         return self._name
 
     @property
-    def entity(self):
+    def entity(self) -> "RigidEntity":
         """
         The entity that the link belongs to.
         """
         return self._entity
 
     @property
-    def solver(self):
+    def solver(self) -> "RigidSolver":
         """
         The solver that the link belongs to.
         """
         return self._solver
 
     @property
-    def visualize_contact(self):
+    def visualize_contact(self) -> bool:
         """
         Whether to visualize the contact of the link.
         """
         return self._visualize_contact
 
     @property
-    def joints(self):
+    def joints(self) -> list["Joint"]:
         """
         The sequence of joints that connects the link to its parent link.
         """

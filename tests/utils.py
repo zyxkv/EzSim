@@ -219,7 +219,7 @@ def get_hf_assets(pattern,
                         raise HTTPError(f"Impossible to parse XML file.") from e
             if not has_files:
                 raise HTTPError("No file downloaded.")
-        except HTTPError as e:
+        except (HTTPError, FileNotFoundError) as e:
             num_trials += 1
             if num_trials == num_retry:
                 raise

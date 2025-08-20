@@ -164,3 +164,4 @@ img_output/
 DIFF_*.md 
 # .github/chatmodes/  
 ezsim/assets/meshes/drone_racing
+examples/world

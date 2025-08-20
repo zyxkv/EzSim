@@ -8,6 +8,7 @@ import ezsim
 import ezsim.utils.geom as gu
 import ezsim.utils.array_class as array_class
 import ezsim.engine.solvers.rigid.rigid_solver_decomp as rigid_solver
+from ezsim.engine.solvers.rigid.contact_island import ContactIsland
 
 if TYPE_CHECKING:
     from ezsim.engine.solvers.rigid.rigid_solver_decomp import RigidSolver
@@ -157,6 +158,10 @@ class ConstraintSolver:
             self.nt_vec = cs.nt_vec
 
         self.reset()
+
+        # Creating a dummy ContactIsland, needed as param for some functions,
+        # and not used when hibernation is not enabled.
+        self.contact_island = ContactIsland(self._collider)
 
     def clear(self, envs_idx: npt.NDArray[np.int32] | None = None):
         self._eq_const_info_cache.clear()

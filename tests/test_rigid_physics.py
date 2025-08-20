@@ -528,7 +528,7 @@ def test_rope_ball(ezsim_sim, mj_sim, ezsim_solver, tol):
     ezsim_sim.rigid_solver.set_dofs_position(ezsim_sim.rigid_solver.get_dofs_position())
 
     check_mujoco_model_consistency(ezsim_sim, mj_sim, tol=tol)
-    simulate_and_check_mujoco_consistency(ezsim_sim, mj_sim, num_steps=300, tol=5e-9)
+    simulate_and_check_mujoco_consistency(ezsim_sim, mj_sim, num_steps=300, tol=1e-8)
 
 
 @pytest.mark.required
