@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import numpy as np
 import torch
 import numpy.typing as npt
-import taichi as ti
+import gstaichi as ti
 
 import ezsim
 from ezsim.engine.entities.base_entity import Entity

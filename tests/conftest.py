@@ -95,6 +95,8 @@ def pytest_xdist_auto_num_workers(config):
     physical_core_count = psutil.cpu_count(logical=config.option.logical)
     _, _, ram_memory, _ = ezsim.utils.get_device(ezsim.cpu)
     _, _, vram_memory, backend = ezsim.utils.get_device(ezsim.gpu)
+    num_gpus = len(_get_gpu_indices())
+    vram_memory *= num_gpus
     if backend == ezsim.cpu:
         # Ignore VRAM if no GPU is available
         vram_memory = float("inf")
@@ -124,7 +126,8 @@ def pytest_xdist_auto_num_workers(config):
         num_cpu_per_gpu = 4
         num_workers = min(
             num_workers,
-            len(_get_gpu_indices()),
+            # len(_get_gpu_indices()),
+            num_gpus,
             max(int(physical_core_count / num_cpu_per_gpu), 1),
         )
 

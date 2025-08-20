@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Optional, Union
 from dataclasses import dataclass
 
 import numpy as np
-import taichi as ti
+import gstaichi as ti
 import torch
 
 import ezsim

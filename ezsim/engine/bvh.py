@@ -1,5 +1,5 @@
 import ezsim
-import taichi as ti
+import gstaichi as ti
 from ezsim.repr_base import RBC
 import numpy as np
 

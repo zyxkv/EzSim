@@ -1,4 +1,4 @@
-import taichi as ti
+import gstaichi as ti
 
 import ezsim
 from ezsim.engine.states.entities import SPHEntityState

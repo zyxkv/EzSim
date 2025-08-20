@@ -1,9 +1,9 @@
 from copy import copy
 from itertools import chain
-from typing import Literal
+from typing import Literal, TYPE_CHECKING
 
 import numpy as np
-import taichi as ti
+import gstaichi as ti
 import torch
 import trimesh
 
@@ -26,42 +26,49 @@ from .rigid_joint import RigidJoint
 from .rigid_link import RigidLink
 
 
+if TYPE_CHECKING:
+    from ezsim.engine.solvers.rigid.rigid_solver_decomp import RigidSolver
+    from ezsim.engine.scene import Scene
+
 @ti.data_oriented
 class RigidEntity(Entity):
     """
     Entity class in rigid body systems. One rigid entity can be a robot, a terrain, a floating rigid body, etc.
     """
 
+    # override typing
+    _solver: "RigidSolver"
+
     def __init__(
         self,
         scene: "Scene",
-        solver: "Solver",
+        solver: "RigidSolver",
         material: Material,
         morph: Morph,
         surface: Surface,
         idx: int,
         idx_in_solver,
-        link_start=0,
-        joint_start=0,
-        q_start=0,
-        dof_start=0,
-        geom_start=0,
-        cell_start=0,
-        vert_start=0,
-        verts_state_start=0,
-        face_start=0,
-        edge_start=0,
-        vgeom_start=0,
+        link_start:int=0,
+        joint_start:int=0,
+        q_start:int=0,
+        dof_start:int=0,
+        geom_start:int=0,
+        cell_start:int=0,
+        vert_start:int=0,
+        verts_state_start:int=0,
+        face_start:int=0,
+        edge_start:int=0,
+        vgeom_start:int=0,
         vvert_start=0,
         vface_start=0,
         equality_start=0,
-        visualize_contact=False,
+        visualize_contact:bool=False,
     ):
         super().__init__(idx, scene, morph, solver, material, surface)
 
         self._idx_in_solver = idx_in_solver
-        self._link_start = link_start
-        self._joint_start = joint_start
+        self._link_start:int = link_start
+        self._joint_start:int = joint_start
         self._q_start = q_start
         self._dof_start = dof_start
         self._geom_start = geom_start
@@ -1339,7 +1346,7 @@ class RigidEntity(Entity):
             # set new qpos
             self._solver.qpos[qs_idx[i_q_], envs_idx[i_b_]] = qpos[i_b_, i_q_]
             # run FK
-            self._solver._func_forward_kinematics_entity(
+            ezsim.engine.solvers.rigid.rigid_solver_decomp._func_forward_kinematics_entity(
                 self._idx_in_solver,
                 envs_idx[i_b_],
                 self._solver.links_state,
@@ -1356,16 +1363,16 @@ class RigidEntity(Entity):
         ti.loop_config(serialize=self._solver._para_level < ezsim.PARA_LEVEL.PARTIAL)
         for i_l_, i_b_ in ti.ndrange(links_idx.shape[0], envs_idx.shape[0]):
             for i in ti.static(range(3)):
-                links_pos[i_b_, i_l_, i] = self._solver.links_state.pos[links_idx[i_l_], envs_idx[i_b_]]
+                links_pos[i_b_, i_l_, i] = self._solver.links_state.pos[links_idx[i_l_], envs_idx[i_b_]][i]
             for i in ti.static(range(4)):
-                links_quat[i_b_, i_l_, i] = self._solver.links_state.quat[links_idx[i_l_], envs_idx[i_b_]]
+                links_quat[i_b_, i_l_, i] = self._solver.links_state.quat[links_idx[i_l_], envs_idx[i_b_]][i]
 
         ti.loop_config(serialize=self._solver._para_level < ezsim.PARA_LEVEL.ALL)
         for i_q_, i_b_ in ti.ndrange(qs_idx.shape[0], envs_idx.shape[0]):
             # restore original qpos
             self._solver.qpos[qs_idx[i_q_], envs_idx[i_b_]] = self._IK_qpos_orig[qs_idx[i_q_], envs_idx[i_b_]]
             # run FK
-            self._solver._func_forward_kinematics_entity(
+            ezsim.engine.solvers.rigid.rigid_solver_decomp._func_forward_kinematics_entity(
                 self._idx_in_solver,
                 envs_idx[i_b_],
                 self._solver.links_state,
@@ -2904,7 +2911,7 @@ class RigidEntity(Entity):
         return self._equalities
 
     @property
-    def is_free(self):
+    def is_free(self)->bool:
         """Whether the entity is free to move."""
         return self._is_free
 

@@ -1,4 +1,4 @@
-import taichi as ti
+import gstaichi as ti
 
 import ezsim
 from ezsim.repr_base import RBC

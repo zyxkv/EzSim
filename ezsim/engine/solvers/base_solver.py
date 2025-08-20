@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 import numpy as np
-import taichi as ti
+import gstaichihi as ti
 import torch
 from ezsim.utils.misc import ti_field_to_torch
 

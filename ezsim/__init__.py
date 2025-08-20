@@ -8,13 +8,16 @@ import traceback
 from platform import system
 from contextlib import redirect_stdout
 
-# Import taichi while collecting its output without printing directly
+# Import gstaichi while collecting its output without printing directly
 _ti_outputs = io.StringIO()
 
 os.environ.setdefault("TI_ENABLE_PYBUF", "0" if sys.stdout is sys.__stdout__ else "1")
 
 with redirect_stdout(_ti_outputs):
-    import gstaichi as ti
+    try:
+        import gstaichi as ti
+    except ImportError:
+        raise ImportError("genesis now uses gstaichi as the backend. Please install it by 'pip install gstaichi'")
 
 try:
     import torch
@@ -204,12 +207,12 @@ def init(
             random_seed=seed,
         )
 
-    # It is necessary to disable Metal backend manually because it is not working at taichi-level due to a bug
+    # It is necessary to disable Metal backend manually because it is not working at gstaichi-level due to a bug
     ti_arch = TI_ARCH[platform][backend]
     if (backend == ezsim_backend.metal) and (os.environ.get("TI_ENABLE_METAL") == "0"):
         ti_arch = TI_ARCH[platform][ezsim_backend.cpu]
 
-    # init taichi
+    # init gstaichi
     with redirect_stdout(_ti_outputs):
         ti.init(
             arch=ti_arch,
@@ -228,7 +231,7 @@ def init(
             **taichi_kwargs,
         )
 
-    # Make sure that taichi arch is matching requirement
+    # Make sure that gstaichi arch is matching requirement
     ti_runtime = ti.lang.impl.get_runtime()
     ti_arch = ti_runtime.prog.config().arch
     if backend != ezsim.cpu and ti_arch in (ti._lib.core.Arch.arm64, ti._lib.core.Arch.x64):
@@ -295,7 +298,7 @@ def destroy():
         del scene
     global_scene_list.clear()
 
-    # Reset taichi
+    # Reset gstaichi
     ti.reset()
 
     # Delete logger

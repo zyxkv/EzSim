@@ -68,6 +68,9 @@ class Morph(Options):
         Whether this morph, if created as `RigidEntity`, requires jacobian and inverse kinematics. Defaults to False. **This is only used for RigidEntity.**
     is_free : bool, optional
         Whether the entity is free to move. Defaults to True. **This is only used for RigidEntity.**
+        This determines whether the entity's geoms have their vertices put into StructFreeVertsState or
+        StructFixedVertsState, and effectively whether they're stored per batch-element, or stored once and shared
+        for the entire batch. That affects correct processing of collision detection.
     """
 
     # Note: pos, euler, quat store only initial varlues at creation time, and are unaffected by sim

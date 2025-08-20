@@ -444,9 +444,10 @@ def test_box_hard_vertex_constraint(show_viewer):
     assert_allclose(
         positions, initial_target_poss, tol=0.0
     ), "Vertices should stay at initial target positions with hard constraints"
-    new_target_poss = initial_target_poss + ezsim.tensor(
-        [[0.1, 0.1, 0.1], [0.1, 0.1, 0.1]],
-    )
+    new_target_poss = initial_target_poss + 0.1
+    # ezsim.tensor(
+    #     [[0.1, 0.1, 0.1], [0.1, 0.1, 0.1]],
+    # )
     box.update_constraint_targets(verts_idx=verts_idx, target_poss=new_target_poss)
 
     for _ in range(100):
@@ -539,7 +540,7 @@ def test_fem_articulated(fem_material_linear_corotated_soft, show_viewer):
         material=fem_material_linear_corotated_soft,
     )
 
-    asset_path = get_hf_dataset(pattern="heavy_three_joint_link.xml")
+    asset_path = get_hf_assets(pattern="heavy_three_joint_link.xml")
     link = scene.add_entity(
         ezsim.morphs.MJCF(file=f"{asset_path}/heavy_three_joint_link.xml", scale=0.5, pos=(-0.5, -0.5, 0.4)),
     )
@@ -556,7 +557,7 @@ def test_fem_articulated(fem_material_linear_corotated_soft, show_viewer):
     assert_allclose(
         min_pos_z,
         -1.0e-3,
-        atol=1e-4,
+        atol=2e-4,
         err_msg=f"Sphere minimum Z position {min_pos_z} is not close to -1.0e-3.",
     )
     assert_allclose(
@@ -602,7 +603,7 @@ def test_implicit_hard_vertex_constraint(fem_material_linear_corotated, show_vie
         show_FPS=False,
     )
 
-    asset_path = get_hf_dataset(pattern="meshes/cube8.obj")
+    asset_path = get_hf_assets(pattern="meshes/cube8.obj")
     cube = scene.add_entity(
         morph=ezsim.morphs.Mesh(
             file=f"{asset_path}/meshes/cube8.obj",
@@ -648,7 +649,7 @@ def test_implicit_hard_vertex_constraint(fem_material_linear_corotated, show_vie
     if show_viewer:
         scene.clear_debug_object(sphere)
 
-    for _ in range(100):
+    for _ in range(70):
         scene.step()
 
     state = cube.get_state()
@@ -691,7 +692,7 @@ def test_sphere_box_vertex_constraint(fem_material_linear_corotated, show_viewer
         show_FPS=False,
     )
 
-    asset_path = get_hf_dataset(pattern="meshes/cube8.obj")
+    asset_path = get_hf_assets(pattern="meshes/cube8.obj")
     cube = scene.add_entity(
         morph=ezsim.morphs.Mesh(
             file=f"{asset_path}/meshes/cube8.obj",

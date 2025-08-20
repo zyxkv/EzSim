@@ -9,8 +9,8 @@ from tkinter import ttk
 
 import numpy as np
 import torch
-from taichi._lib import core as _ti_core
-from taichi.lang import impl
+from gstaichi._lib import core as _ti_core
+from gstaichi.lang import impl
 
 import ezsim
 
@@ -100,7 +100,7 @@ def get_motors_info(robot):
 
 
 def clean():
-    print("Cleaned up all ezsim and taichi cache files...")
+    print("Cleaned up all ezsim and gstaichi cache files...")
     ezsim.utils.misc.clean_cache_files()
     _ti_core.clean_offline_cache_files(os.path.abspath(impl.default_cfg().offline_cache_file_path))
 
@@ -145,6 +145,7 @@ def view(filename, collision, rotate, scale=1.0, show_link_frame=False):
         ),
         vis_options=ezsim.options.VisOptions(
             show_link_frame=show_link_frame,
+            show_world_frame=True,
         ),
         show_viewer=True,
     )
@@ -221,7 +222,7 @@ def main():
     parser = argparse.ArgumentParser(description="EzSim CLI")
     subparsers = parser.add_subparsers(dest="command")
 
-    parser_clean = subparsers.add_parser("clean", help="Clean all the files cached by ezsim and taichi")
+    parser_clean = subparsers.add_parser("clean", help="Clean all the files cached by ezsim and gstaichi")
 
     parser_view = subparsers.add_parser("view", help="Visualize a given asset (mesh/URDF/MJCF)")
     parser_view.add_argument("filename", type=str, help="File to visualize")

@@ -1,5 +1,5 @@
 from typing import TYPE_CHECKING
-import taichi as ti
+import gstaichi as ti
 
 from ezsim.engine.boundaries import FloorBoundary
 from ezsim.engine.states.solvers import ToolSolverState

@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, List
 import numpy as np
 
-import taichi as ti
+import gstaichi as ti
 import torch
 
 import ezsim

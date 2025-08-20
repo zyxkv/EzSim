@@ -1,5 +1,5 @@
 import numpy as np
-import taichi as ti
+import gstaichi as ti
 import trimesh
 
 import ezsim
@@ -148,7 +148,7 @@ class HybridEntity(Entity):
             mat_soft._n_groups = len(link_idcs)
             self._muscle_group_cache = muscle_group
 
-            # set up info in taichi field
+            # set up info in gstaichi field
             if isinstance(mat_soft, ezsim.materials.MPM.Base):
                 part_soft_info = ti.types.struct(
                     link_idx=ezsim.ti_int,

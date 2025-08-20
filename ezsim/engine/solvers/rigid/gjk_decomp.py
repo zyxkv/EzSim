@@ -1,5 +1,5 @@
 from enum import IntEnum
-import taichi as ti
+import gstaichi as ti
 import ezsim 
 import ezsim.utils.geom as gu
 import ezsim.utils.array_class as array_class

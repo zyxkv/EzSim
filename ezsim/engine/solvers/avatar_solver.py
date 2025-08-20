@@ -1,5 +1,5 @@
 import numpy as np
-import taichi as ti
+import gstaichi as ti
 import ezsim
 from ezsim.engine.entities import AvatarEntity
 from ezsim.engine.states.solvers import AvatarSolverState
