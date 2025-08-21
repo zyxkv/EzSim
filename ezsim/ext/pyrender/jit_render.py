@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import numba as nb
 
@@ -12,6 +13,7 @@ from .numba_gl_wrapper import GLWrapper
 
 import ezsim
 
+_DISABLE_OFFSCREEN_MARKERS = "EZSIM_DISABLE_OFFSCREEN_MARKERS" in os.environ
 
 def load_const(const_name):
     c = GL.__getattribute__(const_name)
@@ -426,7 +428,8 @@ class JITRenderer:
             for id in idx:
                 # Only render markers on the main graphical window, while skipping plane-reflection
                 if ((render_flags[id, 4] or render_flags[id, 6]) and flags & RenderFlags_SKIP_FLOOR) or (
-                    render_flags[id, 6] and (not is_rgba or flags & RenderFlags_OFFSCREEN)
+                    render_flags[id, 6]
+                    and (not is_rgba or (flags & RenderFlags_OFFSCREEN and _DISABLE_OFFSCREEN_MARKERS))
                 ):
                     continue
                 pid = program_id[id]
