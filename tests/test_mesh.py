@@ -301,6 +301,7 @@ def test_usd_parse(usd_filename):
 @pytest.mark.parametrize(
     "usd_file", ["usd/WoodenCrate/WoodenCrate_D1_1002.usda", "usd/franka_mocap_teleop/table_scene.usd"]
 )
+@pytest.mark.parametrize("backend", [ezsim.cuda])
 def test_usd_bake(usd_file, show_viewer):
     asset_path = get_hf_assets(pattern=os.path.join(os.path.dirname(usd_file), "*"), local_dir_use_symlinks=False)
     usd_file = os.path.join(asset_path, usd_file)

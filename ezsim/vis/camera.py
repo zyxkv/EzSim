@@ -426,7 +426,7 @@ class Camera(RBC):
         colorize_seg=False,
         normal=False,
         force_render=False,
-        antialiasing=False,
+        antialiasing=True,
     ):
         """
         Render the camera view.

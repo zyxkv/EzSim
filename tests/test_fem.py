@@ -20,7 +20,9 @@ def fem_material():
     )
 
 
-@pytest.mark.parametrize("backend", [ezsim.cpu])
+# @pytest.mark.parametrize("backend", [ezsim.cpu])
+@pytest.mark.required
+@pytest.mark.parametrize("precision", ["64"])
 def test_multiple_fem_entities(fem_material, show_viewer):
     """Test adding multiple FEM entities to the scene"""
     scene = ezsim.Scene(
@@ -61,7 +63,8 @@ def test_multiple_fem_entities(fem_material, show_viewer):
         scene.step()
 
 
-@pytest.mark.parametrize("backend", [ezsim.cpu])
+# @pytest.mark.parametrize("backend", [ezsim.cpu])
+@pytest.mark.required
 def test_interior_tetrahedralized_vertex(fem_material, show_viewer, box_obj_path, cube_verts_and_faces):
     """
     Test tetrahedralization of a FEM entity with a small maxvolume value that introduces
@@ -175,7 +178,8 @@ def test_interior_tetrahedralized_vertex(fem_material, show_viewer, box_obj_path
     )
 
 
-@pytest.mark.parametrize("backend", [ezsim.cpu])
+# @pytest.mark.parametrize("backend", [ezsim.cpu])
+@pytest.mark.required
 def test_maxvolume(fem_material, show_viewer, box_obj_path):
     """Test that imposing a maximum element volume constraint produces a finer mesh (i.e., more elements)."""
     scene = ezsim.Scene(
@@ -205,7 +209,8 @@ def fem_material_linear():
     """Fixture for common FEM linear material properties"""
     return ezsim.materials.FEM.Elastic()
 
-
+@pytest.mark.required
+@pytest.mark.parametrize("precision", ["64"])
 def test_sphere_box_fall_implicit_fem_coupler(fem_material_linear, show_viewer):
     scene = ezsim.Scene(
         sim_options=ezsim.options.SimOptions(
@@ -252,7 +257,8 @@ def test_sphere_box_fall_implicit_fem_coupler(fem_material_linear, show_viewer):
             min_pos_z, 0.0, atol=5e-2
         ), f"Entity {entity.uid} minimum Z position {min_pos_z} is not close to 0.0."
 
-
+@pytest.mark.required
+@pytest.mark.parametrize("precision", ["64"])
 def test_sphere_fall_implicit_fem_sap_coupler(fem_material_linear, show_viewer):
     scene = ezsim.Scene(
         sim_options=ezsim.options.SimOptions(
@@ -296,7 +302,8 @@ def fem_material_linear_corotated():
     """Fixture for common FEM linear material properties"""
     return ezsim.materials.FEM.Elastic(model="linear_corotated")
 
-
+# FIXME: Compilation is crashing on Apple Metal backend
+@pytest.mark.required
 def test_linear_corotated_sphere_fall_implicit_fem_sap_coupler(fem_material_linear_corotated, show_viewer):
     scene = ezsim.Scene(
         sim_options=ezsim.options.SimOptions(
@@ -351,6 +358,8 @@ def fem_material_linear_corotated_soft():
     return ezsim.materials.FEM.Elastic(model="linear_corotated", E=1.0e5, nu=0.4)
 
 
+@pytest.mark.required
+@pytest.mark.parametrize("precision", ["64"])
 def test_fem_sphere_box_self(fem_material_linear_corotated, fem_material_linear_corotated_soft, show_viewer):
     scene = ezsim.Scene(
         sim_options=ezsim.options.SimOptions(
@@ -401,7 +410,8 @@ def test_fem_sphere_box_self(fem_material_linear_corotated, fem_material_linear_
             min_pos_z, depths[i], atol=atols[i]
         ), f"Entity {entity.uid} minimum Z position {min_pos_z} is not close to {depths[i]}."
 
-
+@pytest.mark.required
+@pytest.mark.parametrize("precision", ["64"])
 def test_box_hard_vertex_constraint(show_viewer):
     """
     Test if a box with hard vertex constraints has those vertices fixed,
@@ -470,7 +480,8 @@ def test_box_hard_vertex_constraint(show_viewer):
             positions_after_removal, new_target_poss, tol=1e-3
         ), "Vertices should have moved after removing constraints"
 
-
+@pytest.mark.required
+@pytest.mark.parametrize("precision", ["64"])
 def test_box_soft_vertex_constraint(show_viewer):
     """Test if a box with strong soft vertex constraints has those vertices near."""
     scene = ezsim.Scene(
@@ -518,6 +529,8 @@ def test_box_soft_vertex_constraint(show_viewer):
         positions, target_poss, tol=5e-5
     ), "Vertices should be near target positions with strong soft constraints"
 
+# @pytest.mark.required
+@pytest.mark.parametrize("precision", ["64"])
 def test_fem_articulated(fem_material_linear_corotated_soft, show_viewer):
     scene = ezsim.Scene(
         sim_options=ezsim.options.SimOptions(
@@ -583,7 +596,8 @@ def test_fem_articulated(fem_material_linear_corotated_soft, show_viewer):
         err_msg=f"Link center {center} moves too far from [-0.5, -0.5, 0.04].",
     )
 
-
+@pytest.mark.required
+@pytest.mark.parametrize("precision", ["64"])
 def test_implicit_hard_vertex_constraint(fem_material_linear_corotated, show_viewer):
     """
     Test if a box with hard vertex constraints has those vertices fixed, and that updating and removing constraints
@@ -673,7 +687,8 @@ def test_implicit_hard_vertex_constraint(fem_material_linear_corotated, show_vie
     min_pos_z = state.pos[..., 2].min()
     assert_allclose(min_pos_z, -2.0e-5, atol=5e-6), f"Cube minimum Z position {min_pos_z} is not close to -2.0e-5."
 
-
+# @pytest.mark.required
+@pytest.mark.parametrize("precision", ["64"])
 def test_sphere_box_vertex_constraint(fem_material_linear_corotated, show_viewer):
     """
     Test if a box with hard vertex constraints has those vertices fixed, and collisiong with a sphere works correctly.
@@ -750,3 +765,199 @@ def test_sphere_box_vertex_constraint(fem_material_linear_corotated, show_viewer
     assert_allclose(
         min_sphere_pos_z, -1e-3, atol=2e-4
     ), f"Sphere minimum Z position {min_sphere_pos_z} is not close to cube bottom surface."
+
+
+# add new test of FEM
+
+@pytest.fixture(scope="session")
+def fem_material_linear_corotated_rough():
+    """Fixture for rough FEM linear material properties"""
+    return ezsim.materials.FEM.Elastic(model="linear_corotated", friction_mu=1.0)
+
+
+# @pytest.mark.required
+@pytest.mark.parametrize("precision", ["64"])
+def test_franka_panda_grasp_cube(fem_material_linear_corotated_rough, show_viewer):
+    """
+    Test if the Franka Panda can successfully grasp the cube.
+    """
+    scene = ezsim.Scene(
+        sim_options=ezsim.options.SimOptions(
+            dt=1.0 / 60,
+            substeps=2,
+        ),
+        fem_options=ezsim.options.FEMOptions(
+            use_implicit_solver=True,
+            pcg_threshold=1e-10,
+        ),
+        coupler_options=ezsim.options.SAPCouplerOptions(
+            pcg_threshold=1e-10,
+            sap_convergence_atol=1e-10,
+            sap_convergence_rtol=1e-10,
+            linesearch_ftol=1e-10,
+        ),
+        show_viewer=show_viewer,
+        show_FPS=False,
+    )
+
+    friction = 1.0
+    force = 1.0
+    franka = scene.add_entity(
+        ezsim.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
+        material=ezsim.materials.Rigid(coup_friction=friction, friction=friction),
+    )
+    asset_path = get_hf_dataset(pattern="meshes/cube8.obj")
+    cube = scene.add_entity(
+        morph=ezsim.morphs.Mesh(
+            file=f"{asset_path}/meshes/cube8.obj",
+            scale=0.02,
+            pos=np.array([0.65, 0.0, 0.02], dtype=np.float32),
+        ),
+        material=fem_material_linear_corotated_rough,
+    )
+
+    scene.build()
+    motors_dof = np.arange(7)
+    fingers_dof = np.arange(7, 9)
+    qpos = np.array([-1.0124, 1.5559, 1.3662, -1.6878, -1.5799, 1.7757, 1.4602, 0.04, 0.04])
+    franka.set_qpos(qpos)
+    scene.step()
+
+    end_effector = franka.get_link("hand")
+    qpos = franka.inverse_kinematics(
+        link=end_effector,
+        pos=np.array([0.65, 0.0, 0.135]),
+        quat=np.array([0, 1, 0, 0]),
+    )
+
+    franka.control_dofs_position(qpos[:-2], motors_dof)
+
+    # hold
+    for i in range(10):
+        scene.step()
+    # grasp
+    for i in range(30):
+        franka.control_dofs_position(qpos[:-2], motors_dof)
+        franka.control_dofs_force(np.array([-force, -force]), fingers_dof)
+        scene.step()
+
+    # lift
+    qpos = franka.inverse_kinematics(
+        link=end_effector,
+        pos=np.array([0.65, 0.0, 0.3]),
+        quat=np.array([0, 1, 0, 0]),
+    )
+    for i in range(100):
+        franka.control_dofs_position(qpos[:-2], motors_dof)
+        franka.control_dofs_force(np.array([-force, -force]), fingers_dof)
+        scene.step()
+        if i == 49:
+            old_pos = cube.get_state().pos.mean(axis=(0, 1))
+        if i == 99:
+            new_pos = cube.get_state().pos.mean(axis=(0, 1))
+
+    assert_allclose(
+        new_pos, old_pos, atol=5e-4, err_msg=f"Cube should be not moving much. Old pos: {old_pos}, new pos: {new_pos}."
+    )
+
+
+@pytest.fixture(scope="session")
+def fem_material_linear_corotated_soft_rough():
+    """Fixture for soft rough FEM linear material properties"""
+    return ezsim.materials.FEM.Elastic(model="linear_corotated", E=1e5, nu=0.4, friction_mu=1.0)
+
+
+# @pytest.mark.required
+@pytest.mark.parametrize("precision", ["64"])
+def test_franka_panda_grasp_soft_sphere(fem_material_linear_corotated_soft_rough, show_viewer):
+    """
+    Test if the Franka Panda can successfully grasp the soft sphere.
+    """
+    scene = ezsim.Scene(
+        sim_options=ezsim.options.SimOptions(
+            dt=1.0 / 60,
+            substeps=2,
+        ),
+        fem_options=ezsim.options.FEMOptions(
+            use_implicit_solver=True,
+            pcg_threshold=1e-10,
+        ),
+        coupler_options=ezsim.options.SAPCouplerOptions(
+            pcg_threshold=1e-10,
+            sap_convergence_atol=1e-10,
+            sap_convergence_rtol=1e-10,
+            linesearch_ftol=1e-10,
+        ),
+        show_viewer=show_viewer,
+        show_FPS=False,
+    )
+
+    friction = 1.0
+    force = 1.0
+    franka = scene.add_entity(
+        ezsim.morphs.MJCF(file="xml/franka_emika_panda/panda.xml"),
+        material=ezsim.materials.Rigid(coup_friction=friction, friction=friction),
+    )
+    sphere = scene.add_entity(
+        morph=ezsim.morphs.Sphere(
+            radius=0.02,
+            pos=np.array([0.65, 0.0, 0.02], dtype=np.float32),
+        ),
+        material=fem_material_linear_corotated_soft_rough,
+    )
+
+    scene.build()
+    motors_dof = np.arange(7)
+    fingers_dof = np.arange(7, 9)
+    qpos = np.array([-1.0124, 1.5559, 1.3662, -1.6878, -1.5799, 1.7757, 1.4602, 0.04, 0.04])
+    franka.set_qpos(qpos)
+    scene.step()
+
+    end_effector = franka.get_link("hand")
+    qpos = franka.inverse_kinematics(
+        link=end_effector,
+        pos=np.array([0.65, 0.0, 0.135]),
+        quat=np.array([0, 1, 0, 0]),
+    )
+
+    franka.control_dofs_position(qpos[:-2], motors_dof)
+
+    # hold
+    for i in range(10):
+        scene.step()
+    # grasp
+    for i in range(30):
+        franka.control_dofs_position(qpos[:-2], motors_dof)
+        franka.control_dofs_force(np.array([-force, -force]), fingers_dof)
+        scene.step()
+
+    # lift
+    qpos = franka.inverse_kinematics(
+        link=end_effector,
+        pos=np.array([0.65, 0.0, 0.3]),
+        quat=np.array([0, 1, 0, 0]),
+    )
+    for i in range(100):
+        franka.control_dofs_position(qpos[:-2], motors_dof)
+        franka.control_dofs_force(np.array([-force, -force]), fingers_dof)
+        scene.step()
+        if i == 49:
+            old_pos = sphere.get_state().pos.mean(axis=(0, 1))
+        if i == 99:
+            new_pos = sphere.get_state().pos.mean(axis=(0, 1))
+    pos_np = sphere.get_state().pos.cpu().numpy().reshape(-1, 3)
+    BV, BF = igl.bounding_box(pos_np)
+    deformation = BV[0, :] - BV[-1, :]
+    assert_allclose(
+        new_pos,
+        old_pos,
+        atol=5e-4,
+        err_msg=f"Sphere should be not moving much. Old pos: {old_pos}, new pos: {new_pos}.",
+    )
+    assert_allclose(
+        deformation,
+        np.array([0.04, 0.038, 0.04], dtype=np.float32),
+        atol=1e-3,
+        err_msg=f"Sphere deformation should be small. Deformation: {deformation}.",
+    )
+

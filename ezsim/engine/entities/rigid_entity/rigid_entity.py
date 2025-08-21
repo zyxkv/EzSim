@@ -1021,8 +1021,8 @@ class RigidEntity(Entity):
         (optional) error_pose : array_like, shape (6,) or (n_envs, 6) or (len(envs_idx), 6)
             Pose error for each target. The 6-vector is [err_pos_x, err_pos_y, err_pos_z, err_rot_x, err_rot_y, err_rot_z]. Only returned if `return_error` is True.
         """
-        if self._solver.n_envs > 0:
-            envs_idx = self._scene._sanitize_envs_idx(envs_idx)
+        # if self._solver.n_envs > 0:
+        #     envs_idx = self._scene._sanitize_envs_idx(envs_idx)
 
             if pos is not None:
                 if pos.shape[0] != len(envs_idx):
@@ -1156,47 +1156,45 @@ class RigidEntity(Entity):
             if poss[i] is None and quats[i] is None:
                 ezsim.raise_exception("At least one of `poss` or `quats` must be provided.")
             if poss[i] is not None:
+                poss[i] = self._solver._process_dim(
+                    torch.as_tensor(poss[i], dtype=ezsim.tc_float, device=ezsim.device).contiguous(), envs_idx=envs_idx
+                )
                 link_pos_mask.append(True)
-                if self._solver.n_envs > 0:
-                    if poss[i].shape[0] != len(envs_idx):
-                        ezsim.raise_exception("First dimension of elements in `poss` must be equal to scene.n_envs.")
             else:
-                link_pos_mask.append(False)
                 if self._solver.n_envs == 0:
                     poss[i] = gu.zero_pos()
                 else:
                     poss[i] = self._solver._batch_array(gu.zero_pos(), True)
+                link_pos_mask.append(False)
             if quats[i] is not None:
+                quats[i] = self._solver._process_dim(
+                    torch.as_tensor(quats[i], dtype=ezsim.tc_float, device=ezsim.device).contiguous(), envs_idx=envs_idx
+                )
                 link_rot_mask.append(True)
-                if self._solver.n_envs > 0:
-                    if quats[i].shape[0] != len(envs_idx):
-                        ezsim.raise_exception("First dimension of elements in `quats` must be equal to scene.n_envs.")
             else:
-                link_rot_mask.append(False)
                 if self._solver.n_envs == 0:
                     quats[i] = gu.identity_quat()
                 else:
                     quats[i] = self._solver._batch_array(gu.identity_quat(), True)
-
+                link_rot_mask.append(False)
         if init_qpos is not None:
-            init_qpos = torch.as_tensor(init_qpos, dtype=ezsim.tc_float)
+            init_qpos = torch.as_tensor(init_qpos, dtype=ezsim.tc_float).contiguous()
             if init_qpos.shape[-1] != self.n_qs:
                 ezsim.raise_exception(
                     f"Size of last dimension `init_qpos` does not match entity's `n_qs`: {init_qpos.shape[-1]} vs {self.n_qs}."
                 )
 
-            init_qpos = self._solver._process_dim(init_qpos)
+            init_qpos = self._solver._process_dim(init_qpos, envs_idx=envs_idx)
             custom_init_qpos = True
 
         else:
             init_qpos = torch.empty((0, 0), dtype=ezsim.tc_float)  # B * n_qs, dummy
             custom_init_qpos = False
-
         # pos and rot mask
-        pos_mask = torch.as_tensor(pos_mask, dtype=bool, device=ezsim.device)
+        pos_mask = torch.as_tensor(pos_mask, dtype=bool, device=ezsim.device).contiguous()
         if len(pos_mask) != 3:
             ezsim.raise_exception("`pos_mask` must have length 3.")
-        rot_mask = torch.as_tensor(rot_mask, dtype=bool, device=ezsim.device)
+        rot_mask = torch.as_tensor(rot_mask, dtype=bool, device=ezsim.device).contiguous()
         if len(rot_mask) != 3:
             ezsim.raise_exception("`rot_mask` must have length 3.")
         if sum(rot_mask) == 1:
@@ -1205,22 +1203,12 @@ class RigidEntity(Entity):
             ezsim.raise_exception("You can only align 0, 1 axis or all 3 axes.")
         else:
             pass  # nothing needs to change for 0 or 3 axes
-        link_pos_mask = torch.as_tensor(link_pos_mask, dtype=ezsim.tc_int, device=ezsim.device)
-        link_rot_mask = torch.as_tensor(link_rot_mask, dtype=ezsim.tc_int, device=ezsim.device)
+        link_pos_mask = torch.as_tensor(link_pos_mask, dtype=ezsim.tc_int, device=ezsim.device).contiguous()
+        link_rot_mask = torch.as_tensor(link_rot_mask, dtype=ezsim.tc_int, device=ezsim.device).contiguous()
 
-        links_idx = torch.as_tensor([link.idx for link in links], dtype=ezsim.tc_int, device=ezsim.device)
-        poss = torch.stack(
-            [
-                self._solver._process_dim(torch.as_tensor(pos, dtype=ezsim.tc_float, device=ezsim.device), envs_idx=envs_idx)
-                for pos in poss
-            ]
-        )
-        quats = torch.stack(
-            [
-                self._solver._process_dim(torch.as_tensor(quat, dtype=ezsim.tc_float, device=ezsim.device), envs_idx=envs_idx)
-                for quat in quats
-            ]
-        )
+        links_idx = torch.tensor([link.idx for link in links], dtype=ezsim.tc_int, device=ezsim.device)
+        poss = torch.stack(poss, dim=0)
+        quats = torch.stack(quats, dim=0)
 
         dofs_idx = self._get_idx(dofs_idx_local, self.n_dofs, unsafe=False)
         n_dofs = len(dofs_idx)
@@ -1236,9 +1224,7 @@ class RigidEntity(Entity):
         links_idx_by_dofs = self._get_idx(links_idx_by_dofs, self.n_links, self._link_start, unsafe=False)
         n_links_by_dofs = len(links_idx_by_dofs)
 
-        if envs_idx is None:
-            envs_idx = torch.zeros(1, dtype=ezsim.tc_int, device=ezsim.device)
-
+        envs_idx = self._scene._sanitize_envs_idx(envs_idx)
         self._solver.rigid_entity_inverse_kinematics(
             links_idx,
             poss,
@@ -1472,7 +1458,7 @@ class RigidEntity(Entity):
             assert len(with_entity.links) == 1, "only non-articulated object is supported for now."
 
         # import here to avoid circular import
-        from ezsim.utils.path_planing import RRT, RRTConnect
+        from ezsim.utils.path_planning import RRT, RRTConnect
 
         match planner:
             case "RRT":
@@ -1508,11 +1494,11 @@ class RigidEntity(Entity):
 
         if self._solver.n_envs == 0:
             if return_valid_mask:
-                return path.squeeze(1), is_invalid[0]
+                return path.squeeze(1), ~is_invalid[0]
             return path.squeeze(1)
 
         if return_valid_mask:
-            return path, is_invalid
+            return path, ~is_invalid
         return path
 
     # ------------------------------------------------------------------------------------

@@ -1,7 +1,6 @@
-import numpy as np
-import time
-import ezsim
 import argparse
+import numpy as np
+import ezsim
 
 def main():
     parser = argparse.ArgumentParser()

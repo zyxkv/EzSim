@@ -180,6 +180,19 @@ def tol():
 
     return TOL_DOUBLE if ezsim.np_float == np.float64 else TOL_SINGLE
 
+@pytest.fixture
+def precision(request, backend):
+    import ezsim
+
+    precision = None
+    for mark in request.node.iter_markers("precision"):
+        if mark.args:
+            if precision is not None:
+                pytest.fail("'precision' can only be specified once.")
+            (precision,) = mark.args
+    if precision is None:
+        precision = "64" if backend == ezsim.cpu else "32"
+    return precision
 
 @pytest.fixture
 def mujoco_compatibility(request):
@@ -273,8 +286,9 @@ def taichi_offline_cache(request):
 
 
 @pytest.fixture(scope="function", autouse=True)
-def initialize_ezsim(request, backend, taichi_offline_cache):
+def initialize_ezsim(request, backend, precision, taichi_offline_cache):
     import pyglet
+    import gstaichi as ti
     import ezsim
     from ezsim.utils.misc import ALLOCATE_TENSOR_WARNING
 
@@ -291,7 +305,14 @@ def initialize_ezsim(request, backend, taichi_offline_cache):
             pytest.skip(f"Backend '{backend}' not available on this machine")
 
         ezsim.init(backend=backend, precision=precision, debug=debug, seed=0, logging_level=logging_level)
-        ezsim.logger.addFilter(lambda record: ALLOCATE_TENSOR_WARNING not in record.getMessage())
+        
+        ti_runtime = ti.lang.impl.get_runtime()
+        ti_arch = ti_runtime.prog.config().arch
+        if ti_arch == ti.metal and precision == "64":
+            ezsim.destroy()
+            pytest.skip("Apple Metal GPU does not support 64bits precision.")
+
+
         if backend != ezsim.cpu and ezsim.backend == ezsim.cpu:
             ezsim.destroy()
             pytest.skip("No GPU available on this machine")

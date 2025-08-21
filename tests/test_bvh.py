@@ -26,7 +26,7 @@ def lbvh():
     lbvh.build()
     return lbvh
 
-
+@pytest.mark.required
 def test_morton_code(lbvh):
     morton_codes = lbvh.morton_codes.to_numpy()
     # Check that the morton codes are sorted
@@ -36,7 +36,7 @@ def test_morton_code(lbvh):
                 morton_codes[i_b, i, 0] > morton_codes[i_b, i - 1, 0]
             ), f"Morton codes are not sorted: {morton_codes[i_b, i]} < {morton_codes[i_b, i - 1]}"
 
-
+@pytest.mark.required
 def test_expand_bits():
     """
     Test the expand_bits function for LBVH.
@@ -70,7 +70,7 @@ def test_expand_bits():
             f"00{bit}" for bit in str_x
         ), f"Expected {str_expanded_x}, got {''.join(f'00{bit}' for bit in str_x)}"
 
-
+@pytest.mark.required
 @pytest.mark.parametrize("backend", [ezsim.cpu, ezsim.gpu])
 def test_build_tree(lbvh):
     nodes = lbvh.nodes.to_numpy()
@@ -121,6 +121,7 @@ def test_build_tree(lbvh):
 def query_kernel(lbvh: ti.template(), aabbs: ti.template()):
     lbvh.query(aabbs)
 
+@pytest.mark.required
 @pytest.mark.parametrize("backend", [ezsim.cpu, ezsim.gpu])
 def test_query(lbvh):
     aabbs = lbvh.aabbs

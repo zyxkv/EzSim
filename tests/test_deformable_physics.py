@@ -5,7 +5,7 @@ import ezsim
 
 from .utils import assert_allclose
 
-
+@pytest.mark.required
 @pytest.mark.parametrize("muscle_material", [ezsim.materials.MPM.Muscle, ezsim.materials.FEM.Muscle])
 @pytest.mark.parametrize("backend", [ezsim.cpu])
 def test_muscle(muscle_material, show_viewer):
@@ -90,7 +90,7 @@ def test_muscle(muscle_material, show_viewer):
         worm.set_actuation(np.array([0.0, 0.0, 0.0, 1.0 * (0.5 + np.sin(0.005 * np.pi * i))]))
         scene.step()
 
-
+@pytest.mark.required
 @pytest.mark.parametrize("backend", [ezsim.gpu])
 def test_deformable_parallel(show_viewer):
     scene = ezsim.Scene(

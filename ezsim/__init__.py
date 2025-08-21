@@ -32,7 +32,7 @@ from .constants import backend as ezsim_backend
 from .logging import Logger
 from .version import __version__
 from .utils import redirect_libc_stderr, set_random_seed, get_platform, get_device, get_cache_dir
-
+from .utils.misc import ALLOCATE_TENSOR_WARNING
 
 os.environ.setdefault("NUMBA_CACHE_DIR", os.path.join(get_cache_dir(), "numba"))
 
@@ -76,6 +76,10 @@ def init(
         logging_level = _logging.DEBUG if debug else _logging.INFO
     logger = Logger(logging_level, log_time, logger_verbose_time)
     atexit.register(destroy)
+
+    # FIXME: Disable this warning for now, because it is not useful without printing the entire traceback
+    ezsim.logger.addFilter(lambda record: record.msg != ALLOCATE_TENSOR_WARNING)
+
 
     # Must delay raising exception after logger initialization
     if not is_theme_valid:
